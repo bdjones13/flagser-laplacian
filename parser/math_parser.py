@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from lark import Lark, InlineTransformer, Tree
 from functools import reduce
 import string

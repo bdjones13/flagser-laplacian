@@ -20,3 +20,5 @@ include/algorithms.h
 *.vscode
 .cache
 build/
+*.out
+flagser-real

@@ -63,7 +63,7 @@ public:
 	bool approximate_computation = false;
 	bool in_memory = false;
 	size_t max_entries = std::numeric_limits<size_t>::max();
-	size_t nb_threads = std::thread::hardware_concurrency();
+	size_t nb_threads = 1;//Ben Jones 2023-03-03 std::thread::hardware_concurrency();
 	std::string input_format = "flagser";
 	std::string output_name = "";
 	std::string output_format = "barcode";
