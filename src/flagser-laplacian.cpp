@@ -18,6 +18,9 @@
 // Compute directed flag complex homology
 //
 
+#include "MatlabEngine.hpp"
+#include "MatlabDataArray.hpp"
+
 #include "../include/complex/real_directed_flag_complex_computer.h"
 #include "../include/complex/directed_flag_complex_in_memory_computer.h"
 
@@ -65,6 +68,9 @@ void compute_homology(filtered_directed_graph_t& graph, const flagser_parameters
 }
 
 int main(int argc, char** argv) {
+
+	std::unique_ptr<matlab::engine::MATLABEngine> m_matlab_engine = matlab::engine::startMATLAB();
+
 	try {
 		auto arguments = parse_arguments(argc, argv);
 
@@ -80,9 +86,10 @@ int main(int argc, char** argv) {
 
 		filtered_directed_graph_t graph = read_filtered_directed_graph(input_filename, params); //does not seem to depend on the coefficients
 
-		if (params.in_memory)
-			compute_homology<directed_flag_complex_in_memory_computer::directed_flag_complex_in_memory_computer_t>(graph, params); //todo: change coeff
-		else
+		// if (params.in_memory)
+			// compute_homology<directed_flag_complex_in_memory_computer::directed_flag_complex_in_memory_computer_t>(graph, params); //todo: change coeff
+		// else
+		// Ben Jones 2023-03-16 don't worry about in_memory during development
 			compute_homology<real_directed_flag_complex_computer::real_directed_flag_complex_computer_t>(graph, params); //todo: change coeff - do this one first?
 	} catch (const std::exception& e) { std::cout << e.what() << std::endl; }
 }

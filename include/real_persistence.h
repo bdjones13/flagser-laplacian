@@ -13,12 +13,17 @@
 #include "definitions.h"
 #include "output/base.h"
 
+#include "MatlabEngine.hpp"
+#include "MatlabDataArray.hpp"
+// #include "MatlabCppSharedLib.hpp"
+
 #ifdef USE_ARRAY_HASHMAP
 typedef std::deque<index_t> pivot_column_index_t;
 // const index_t INVALID_INDEX = std::numeric_limits<index_t>::max();
 #else
 typedef fast_hash_map<index_t, index_t> pivot_column_index_t;
 #endif
+
 
 
 // std::vector<coefficient_t> multiplicative_inverse_vector(const coefficient_t m) {
@@ -290,6 +295,10 @@ public:
 		// }
 	}
 
+	real_compressed_sparse_matrix to_Eigen_sparse(){
+
+	}
+
 };
 
 template <typename Heap> void push_entry(Heap& column, index_t i, real_coefficient_t c, value_t filtration) {
@@ -510,12 +519,15 @@ private:
 	std::vector<coefficient_t> multiplicative_inverse;
 	std::deque<real_filtration_index_t> columns_to_reduce;
 
+	std::vector<std::pair<std::vector<real_compressed_sparse_matrix<real_entry_t>>, std::vector<size_t> >> coboundaries;
 
 public:
 	real_persistence_computer_t(Complex& _complex, output_t<Complex>* _output,
 	                       size_t _max_entries = std::numeric_limits<size_t>::max(), //int _modulus = 2,
 	                       value_t _max_filtration = std::numeric_limits<value_t>::max())
-	    : complex(_complex), output(_output), max_filtration(_max_filtration), max_entries(_max_entries) {}
+	    : complex(_complex), output(_output), max_filtration(_max_filtration), max_entries(_max_entries) {
+
+		}
 
 	    //   multiplicative_inverse(multiplicative_inverse_vector(modulus)) {
 
@@ -553,9 +565,13 @@ public:
 	}
 
 
+	void compute_laplacians(){
+
+	}
 protected:
 	void compute_zeroth_persistence(unsigned short min_dimension, unsigned short) {
 		complex.prepare_next_dimension(0);
+		coboundaries.push_back(complex.get_coboundary_matrix());
 //To just get boundary matrix don't need persistence, Ben Jones 2023-03-13
 // 		// Only compute this if we actually need it
 // 		if (min_dimension > 1) return;
@@ -630,6 +646,7 @@ protected:
 		std::cout << "min dimension = " << min_dimension << " max_dimension = " << max_dimension << std::endl;
 		for (auto dimension = 1u; dimension <= max_dimension; ++dimension) {
 			complex.prepare_next_dimension(dimension);
+			coboundaries.push_back(complex.get_coboundary_matrix());
 
 // 			if (dimension + 1 == min_dimension) {
 // 				// Here we need to reduce *all* cells because we did not compute anything of smaller dimension

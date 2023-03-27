@@ -22,10 +22,31 @@ IF(HDF5_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWITH_HDF5")
 ENDIF()
 
+
+set(Matlab_ROOT_DIR "/usr/local/MATLAB/R2022b")
+# set(Matlab_MEX_LIBRARY "/mnt/c/Program Files/MATLAB/R2022b/bin/mex.bat")
+# set(Matlab_MEX_EXTENSION "/mnt/c/Program Files/MATLAB/R2022b/bin/mexext.bat")
+
+find_package(Matlab)
+find_library(LIB_MATLAB_DATA_ARRAY 
+	NAMES MatlabDataArray
+	PATHS ${Matlab_ROOT_DIR}/extern/bin/glnxa64
+	NO_DEFAULT_PATH
+  REQUIRED)
+
+find_library(LIB_MATLAB_ENGINE
+	NAMES MatlabEngine
+	PATHS ${Matlab_ROOT_DIR}/extern/bin/glnxa64
+        NO_DEFAULT_PATH
+        REQUIRED)
+
+include_directories(${Matlab_INCLUDE_DIRS})
+
+
 IF(MSVC)
   set(CMAKE_CXX_RELEASE_FLAGS "${CMAKE_CXX_FLAGS} -Ox -D NDEBUG")
 ELSE()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -pthread -pedantic-errors")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -pthread") # removed -pedantic-errors because Matlab throws some
   set(CMAKE_CXX_DEBUG_FLAGS "${CMAKE_CXX_FLAGS} -O0 -fno-omit-frame-pointer -fsanitize=memory")
   set(CMAKE_CXX_RELEASE_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -D NDEBUG")
 ENDIF()
@@ -101,8 +122,10 @@ IF(HDF5_FOUND)
 IF(NOT MSVC)
 # TARGET_LINK_LIBRARIES(ripser-coefficients ${HDF5_LIBRARIES} pthread)
 # TARGET_LINK_LIBRARIES(flagser-coefficients ${HDF5_LIBRARIES} pthread)
-TARGET_LINK_LIBRARIES(flagser-real ${HDF5_LIBRARIES} pthread) # Ben Jones 2023-03-01
+TARGET_LINK_LIBRARIES(flagser-real ${HDF5_LIBRARIES} pthread ${LIB_MATLAB_DATA_ARRAY} ${LIB_MATLAB_ENGINE}) # Ben Jones 2023-03-01, added matlab 2023-03-15
 ENDIF()
+ELSE()
+TARGET_LINK_LIBRARIES(flagser-real pthread ${LIB_MATLAB_DATA_ARRAY} ${LIB_MATLAB_ENGINE}) # Ben Jones 2023-03-22
 ENDIF()
 
 IF(NOT MSVC)

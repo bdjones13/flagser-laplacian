@@ -283,6 +283,10 @@ public:
 
 	void computation_result(int, size_t, size_t) {}
 	void finished() {}
+
+	std::pair<std::vector<real_compressed_sparse_matrix<real_entry_t>>, std::vector<size_t> > get_coboundary_matrix() {
+		return std::make_pair(coboundary_matrix, coboundary_matrix_offsets);
+	}
 };
 
 struct add_cell_index_to_cache_t {
