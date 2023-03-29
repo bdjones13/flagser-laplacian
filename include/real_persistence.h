@@ -531,6 +531,7 @@ private:
 	std::deque<real_filtration_index_t> columns_to_reduce;
 
 	std::vector<SparseMatrix> coboundaries;
+	std::vector<SparseMatrix> Laplacians;
 	// std::vector<std::pair<std::vector<real_compressed_sparse_matrix<real_entry_t>>, std::vector<size_t> >> coboundaries;
 
 public:
@@ -552,6 +553,7 @@ public:
 	                         bool check_euler_characteristic = true) {
 		compute_zeroth_persistence(min_dimension, max_dimension);// TODO: check this
 		compute_higher_persistence(min_dimension, max_dimension);// TODO: check this
+		compute_laplacians();// TODO: min dimension and max dimension
 		complex.finished();
 		output->finished(check_euler_characteristic);
 
@@ -578,8 +580,43 @@ public:
 
 
 	void compute_laplacians(){
+		
+		//first and last laplacian are different
+		//note we start with coboundaries, not boundaries
+		Laplacians.push_back(compute_zeroth_laplacian());
+		int num_laplacians = (int) coboundaries.size(); 
+		for(int i = 0; i < num_laplacians-1; i++){
+			Laplacians.push_back(compute_middle_laplacian(i));
+		}
+		Laplacians.push_back(compute_last_laplacian());
+	}
+
+	SparseMatrix compute_zeroth_laplacian(){
+		//note we start with coboundaries, not boundaries
+		SparseMatrix d1 = coboundaries[1];
+		return d1.transpose()*d1;
+	}
+
+	SparseMatrix compute_middle_laplacian(int i){
+		//note we start with coboundaries, not boundaries
+		SparseMatrix di = coboundaries[i];
+		SparseMatrix dnext = coboundaries[i+1];
+		return di*di.transpose() + dnext.transpose()*dnext;
+	}
+
+	SparseMatrix compute_last_laplacian(){
+		//note we start with coboundaries, not boundaries
+		SparseMatrix dn = coboundaries.back();
+		return dn*dn.transpose();
+	}
+
+	std::vector<double> compute_spectra(int dim, int num_eigenvals){
+		std::vector<double> dummy;
+		dummy.push_back(0);
+		return dummy;
 
 	}
+
 protected:
 	void compute_zeroth_persistence(unsigned short min_dimension, unsigned short) {
 		complex.prepare_next_dimension(0);
