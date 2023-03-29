@@ -13,9 +13,12 @@
 #include "definitions.h"
 #include "output/base.h"
 
-#include "MatlabEngine.hpp"
-#include "MatlabDataArray.hpp"
-// #include "MatlabCppSharedLib.hpp"
+// #include "MatlabEngine.hpp"
+// #include "MatlabDataArray.hpp"
+// // #include "MatlabCppSharedLib.hpp"
+// #include "Eigen/Eigen/Sparse"
+// #include "Eigen/Eigen/Dense"
+// typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SparseMatrix;
 
 #ifdef USE_ARRAY_HASHMAP
 typedef std::deque<index_t> pivot_column_index_t;
@@ -295,8 +298,16 @@ public:
 		// }
 	}
 
-	real_compressed_sparse_matrix to_Eigen_sparse(){
-
+	SparseMatrix to_Eigen(int rows, int columns,int dim){
+		SparseMatrix sparse(rows, columns);
+		int this_size = size();
+		sparse.reserve(Eigen::VectorXi::Constant(columns, dim + 1));//columns or rows?
+		for(auto j = 0; j < this_size; j++){
+			for(auto it = cbegin(j); it != cend(j); ++it){
+				sparse.insert(get_index(*it),j) = get_coefficient(*it); 
+			}
+		}
+		return sparse;
 	}
 
 };
@@ -519,7 +530,8 @@ private:
 	std::vector<coefficient_t> multiplicative_inverse;
 	std::deque<real_filtration_index_t> columns_to_reduce;
 
-	std::vector<std::pair<std::vector<real_compressed_sparse_matrix<real_entry_t>>, std::vector<size_t> >> coboundaries;
+	std::vector<SparseMatrix> coboundaries;
+	// std::vector<std::pair<std::vector<real_compressed_sparse_matrix<real_entry_t>>, std::vector<size_t> >> coboundaries;
 
 public:
 	real_persistence_computer_t(Complex& _complex, output_t<Complex>* _output,
@@ -571,7 +583,7 @@ public:
 protected:
 	void compute_zeroth_persistence(unsigned short min_dimension, unsigned short) {
 		complex.prepare_next_dimension(0);
-		coboundaries.push_back(complex.get_coboundary_matrix());
+		coboundaries.push_back(complex.get_coboundary_as_Eigen());
 //To just get boundary matrix don't need persistence, Ben Jones 2023-03-13
 // 		// Only compute this if we actually need it
 // 		if (min_dimension > 1) return;
@@ -646,7 +658,7 @@ protected:
 		std::cout << "min dimension = " << min_dimension << " max_dimension = " << max_dimension << std::endl;
 		for (auto dimension = 1u; dimension <= max_dimension; ++dimension) {
 			complex.prepare_next_dimension(dimension);
-			coboundaries.push_back(complex.get_coboundary_matrix());
+			coboundaries.push_back(complex.get_coboundary_as_Eigen());
 
 // 			if (dimension + 1 == min_dimension) {
 // 				// Here we need to reduce *all* cells because we did not compute anything of smaller dimension

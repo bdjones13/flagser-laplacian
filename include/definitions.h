@@ -74,3 +74,11 @@ void print_ram_usage(std::string) { std::cerr << "Sorry, can only print ram on M
 #ifndef USE_COEFFICIENTS
 const coefficient_t modulus = 2;
 #endif
+
+
+#include "MatlabEngine.hpp"
+#include "MatlabDataArray.hpp"
+// #include "MatlabCppSharedLib.hpp"
+#include "Eigen/Eigen/Sparse"
+#include "Eigen/Eigen/Dense"
+typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SparseMatrix;

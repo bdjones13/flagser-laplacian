@@ -224,6 +224,7 @@ class real_directed_flag_complex_computer_t {
 	std::vector<real_compressed_sparse_matrix<real_entry_t>> coboundary_matrix;
 	std::vector<size_t> coboundary_matrix_offsets;
 	coefficient_t modulus; //no modulus with real coefficients - TODO: remove modulus
+	SparseMatrix coboundary_as_Eigen;
 
 public:
 	real_directed_flag_complex_computer_t(filtered_directed_graph_t& _graph, const flagser_parameters& params)
@@ -286,6 +287,10 @@ public:
 
 	std::pair<std::vector<real_compressed_sparse_matrix<real_entry_t>>, std::vector<size_t> > get_coboundary_matrix() {
 		return std::make_pair(coboundary_matrix, coboundary_matrix_offsets);
+	}
+
+	SparseMatrix get_coboundary_as_Eigen(){
+		return coboundary_as_Eigen;
 	}
 };
 
@@ -575,6 +580,8 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 			real_compressed_sparse_matrix<real_entry_t> col = coboundary_matrix[i];
 			col.print();			
 			col.print_uncompressed(int(cell_count[dimension+1])); // might be dimension +/- 1
+			coboundary_as_Eigen = col.to_Eigen(int(cell_count[dimension+1]),int(cell_count[dimension]),dimension);
+
 		}
 		std::cout << "end printing coboundaries." << std::endl << std::flush;
 
