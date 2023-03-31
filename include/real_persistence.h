@@ -555,6 +555,9 @@ public:
 		compute_zeroth_persistence(min_dimension, max_dimension);// TODO: check this
 		compute_higher_persistence(min_dimension, max_dimension);// TODO: check this
 		compute_laplacians();// TODO: min dimension and max dimension
+		for(int i = 0; i < (int) Laplacians.size(); i++){
+			print_Eigen_Sparse(Laplacians[i]);
+		}
 		std::vector<double> eigenvalues = compute_spectra(0, 4);
 		std::cout << "spectra=[";
 		for(int i = 0; i < 4; i++){
@@ -585,7 +588,9 @@ public:
 
 	}
 
-
+	void print_Eigen_Sparse(SparseMatrix m){
+		std::cout << "eigen matrix = " << Eigen::MatrixXd(m) << std::endl;
+	}
 	void compute_laplacians(){
 		std::cout <<"begin computing laplacians" << std::endl;
 		//first and last laplacian are different
