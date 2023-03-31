@@ -555,6 +555,12 @@ public:
 		compute_zeroth_persistence(min_dimension, max_dimension);// TODO: check this
 		compute_higher_persistence(min_dimension, max_dimension);// TODO: check this
 		compute_laplacians();// TODO: min dimension and max dimension
+		std::vector<double> eigenvalues = compute_spectra(0, 4);
+		std::cout << "spectra=[";
+		for(int i = 0; i < 4; i++){
+			std::cout << eigenvalues[i] << ", ";
+		}
+		std::cout <<  "]" << std::endl;
 		complex.finished();
 		output->finished(check_euler_characteristic);
 
@@ -660,7 +666,7 @@ public:
 		data::TypedArray<double> vv = m_matlab_engine->getVariable(u"V");
 
 		eigenvalues.reserve(dd.getDimensions()[0]);
-		for(int i=0; i<dd.getDimensions()[0]; ++i){
+		for(int i=0; i<(int)dd.getDimensions()[0]; ++i){
 			eigenvalues.push_back(dd[i][i]);
 		}
 
