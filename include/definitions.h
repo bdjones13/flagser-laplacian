@@ -82,3 +82,4 @@ const coefficient_t modulus = 2;
 #include "Eigen/Eigen/Sparse"
 #include "Eigen/Eigen/Dense"
 typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SparseMatrix;
+typedef Eigen::VectorXd ColumnVector;

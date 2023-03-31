@@ -532,6 +532,7 @@ private:
 
 	std::vector<SparseMatrix> coboundaries;
 	std::vector<SparseMatrix> Laplacians;
+	std::unique_ptr<matlab::engine::MATLABEngine> m_matlab_engine;
 	// std::vector<std::pair<std::vector<real_compressed_sparse_matrix<real_entry_t>>, std::vector<size_t> >> coboundaries;
 
 public:
@@ -539,7 +540,7 @@ public:
 	                       size_t _max_entries = std::numeric_limits<size_t>::max(), //int _modulus = 2,
 	                       value_t _max_filtration = std::numeric_limits<value_t>::max())
 	    : complex(_complex), output(_output), max_filtration(_max_filtration), max_entries(_max_entries) {
-
+			m_matlab_engine = matlab::engine::startMATLAB();
 		}
 
 	    //   multiplicative_inverse(multiplicative_inverse_vector(modulus)) {
@@ -580,7 +581,7 @@ public:
 
 
 	void compute_laplacians(){
-		
+		std::cout <<"begin computing laplacians" << std::endl;
 		//first and last laplacian are different
 		//note we start with coboundaries, not boundaries
 		Laplacians.push_back(compute_zeroth_laplacian());
@@ -589,6 +590,8 @@ public:
 			Laplacians.push_back(compute_middle_laplacian(i));
 		}
 		Laplacians.push_back(compute_last_laplacian());
+		
+		std::cout <<"end computing laplacians" << std::endl;
 	}
 
 	SparseMatrix compute_zeroth_laplacian(){
@@ -611,9 +614,58 @@ public:
 	}
 
 	std::vector<double> compute_spectra(int dim, int num_eigenvals){
-		std::vector<double> dummy;
-		dummy.push_back(0);
-		return dummy;
+
+		//most of this code is identical to https://github.com/wangru25/HERMES/blob/main/src/snapshot.cpp
+		// it needed eval=eigenvalue return variable, evec=eigenvector return variable, int matrix_size, and vector<double>& for row, col, and val, and int es 
+		// vector for row, col, and val is a sparse matrix representation probably, 
+		// matrix_size is used for setting up "vms", es for "ves" "vee matrix size" and "vee es", whatever es is
+		// es is the number of eigenvalues
+
+		std::vector<double> row, col, val;
+		// row.reserve(size); //TODO: similarly for col and val - major efficiency improvements
+		SparseMatrix L = Laplacians[0];//TODO: loop over all of Laplacians
+		for(int i=0; i < L.outerSize(); ++i){
+			for(SparseMatrix::InnerIterator iter(L,i); iter; ++iter){
+				row.push_back(static_cast<double>(iter.row()+1));
+				col.push_back(static_cast<double>(iter.col()+1));
+				val.push_back(static_cast<double>(iter.value()));
+			}
+		}
+		std::vector<double> eigenvalues;
+	    std::vector<ColumnVector> eigenvectors;
+		int es = num_eigenvals; //TODO: reconcile the variables
+		int matrix_size = complex.number_of_cells(0);//TODO: change dim of get with loop
+		std::vector<double> vms = {static_cast<double>(matrix_size)};
+		std::vector<double> ves = {static_cast<double>(es)};
+		using namespace matlab;
+
+		data::ArrayFactory factory;
+		
+		data::TypedArray<double> mms = factory.createArray<std::vector<double>::iterator>({ 1, 1 }, vms.begin(), vms.end());
+		data::TypedArray<double> mrow = factory.createArray<std::vector<double>::iterator>({ row.size(), 1 }, row.begin(), row.end());
+		data::TypedArray<double> mcol = factory.createArray<std::vector<double>::iterator>({ col.size(), 1 }, col.begin(), col.end());
+		data::TypedArray<double> mval = factory.createArray<std::vector<double>::iterator>({ val.size(), 1 }, val.begin(), val.end());
+		data::TypedArray<double> mes = factory.createArray<std::vector<double>::iterator>({ 1, 1 }, ves.begin(), ves.end());
+		
+		m_matlab_engine->setVariable(u"size", std::move(mms));
+		m_matlab_engine->setVariable(u"row", std::move(mrow));
+		m_matlab_engine->setVariable(u"col", std::move(mcol));
+		m_matlab_engine->setVariable(u"val", std::move(mval));
+		m_matlab_engine->setVariable(u"es", std::move(mes));
+		m_matlab_engine->eval(u"A=sparse(row, col, val, size, size);");
+		m_matlab_engine->eval(u"A=A+speye(size)*1e-12;");
+		m_matlab_engine->eval(u"if size > es \n num = es; \n else \n num = size; \n end \n");
+		m_matlab_engine->eval(u"[V,D]=eigs((A+A')/2, num, 'smallestabs');");
+		data::TypedArray<double> dd = m_matlab_engine->getVariable(u"D");
+		data::TypedArray<double> vv = m_matlab_engine->getVariable(u"V");
+
+		eigenvalues.reserve(dd.getDimensions()[0]);
+		for(int i=0; i<dd.getDimensions()[0]; ++i){
+			eigenvalues.push_back(dd[i][i]);
+		}
+
+
+		return eigenvalues;
 
 	}
 

@@ -69,7 +69,7 @@ void compute_homology(filtered_directed_graph_t& graph, const flagser_parameters
 
 int main(int argc, char** argv) {
 
-	std::unique_ptr<matlab::engine::MATLABEngine> m_matlab_engine = matlab::engine::startMATLAB();
+	
 
 	try {
 		auto arguments = parse_arguments(argc, argv);
