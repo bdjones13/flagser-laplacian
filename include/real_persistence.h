@@ -560,8 +560,12 @@ public:
 		}
 
 		std::vector<std::vector<double>> spectra;
-		for (int dim = min_dimension; dim < max_dimension; dim++){
-			spectra.push_back(compute_spectra(dim,0));
+		for (int dim = min_dimension; dim < max_dimension-1; dim++){
+			std::cout << "compute spectra at dimension=" << dim << "\n" << std::flush;
+            spectra.push_back(compute_spectra(dim,0));
+			std::cout << "finish compute spectra at dimension=" << dim << "\n" << std::flush;
+            if (spectra[dim].size() == 0)
+                break;
 		}
 		// std::vector<double> eigenvalues = compute_spectra(0, 0);
 
@@ -572,7 +576,9 @@ public:
 			for(int i = 0; i < (int) cur_spectra.size(); i++){
 				std::cout << cur_spectra[i] << ", ";
 			}
-			std::cout << "spectra=]\n" << std::flush;
+			std::cout << "]\n" << std::flush;
+            if (cur_spectra.size() == 0)
+                break;
 		}
 
 		// std::cout << "spectra=[";
@@ -649,8 +655,13 @@ public:
 		// vector for row, col, and val is a sparse matrix representation probably, 
 		// matrix_size is used for setting up "vms", es for "ves" "vee matrix size" and "vee es", whatever es is
 		// es is the number of eigenvalues
-
-		std::vector<double> row, col, val;
+		int matrix_size = complex.number_of_cells(dim);
+        std::cout << "matrix size = " << matrix_size << std::endl;
+		if (matrix_size <= 0){
+            std::vector<double> dummy;
+            return dummy;
+        }
+        std::vector<double> row, col, val;
 		// row.reserve(size); //TODO: similarly for col and val - efficiency improvements
 		SparseMatrix L = Laplacians[dim];
 
@@ -664,7 +675,6 @@ public:
 		std::vector<double> eigenvalues;
 	    std::vector<ColumnVector> eigenvectors;
 		// int es = num_eigenvals; //TODO: reconcile the variables
-		int matrix_size = complex.number_of_cells(dim);
 		
 		if (num_eigenvals == 0)
 			//compute all
