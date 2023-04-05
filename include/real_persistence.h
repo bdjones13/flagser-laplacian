@@ -558,12 +558,15 @@ public:
 		for(int i = 0; i < (int) Laplacians.size(); i++){
 			print_Eigen_Sparse(Laplacians[i]);
 		}
-		std::vector<double> eigenvalues = compute_spectra(0, 4);
+		std::vector<double> eigenvalues = compute_spectra(0, 0);
+	
 		std::cout << "spectra=[";
-		for(int i = 0; i < 4; i++){
+		int eval_count = (int) eigenvalues.size();
+		for(int i = 0; i < eval_count; i++){
 			std::cout << eigenvalues[i] << ", ";
 		}
 		std::cout <<  "]" << std::endl;
+	
 		complex.finished();
 		output->finished(check_euler_characteristic);
 
@@ -633,8 +636,9 @@ public:
 		// es is the number of eigenvalues
 
 		std::vector<double> row, col, val;
-		// row.reserve(size); //TODO: similarly for col and val - major efficiency improvements
-		SparseMatrix L = Laplacians[0];//TODO: loop over all of Laplacians
+		// row.reserve(size); //TODO: similarly for col and val - efficiency improvements
+		SparseMatrix L = Laplacians[dim];
+
 		for(int i=0; i < L.outerSize(); ++i){
 			for(SparseMatrix::InnerIterator iter(L,i); iter; ++iter){
 				row.push_back(static_cast<double>(iter.row()+1));
@@ -644,10 +648,15 @@ public:
 		}
 		std::vector<double> eigenvalues;
 	    std::vector<ColumnVector> eigenvectors;
-		int es = num_eigenvals; //TODO: reconcile the variables
-		int matrix_size = complex.number_of_cells(0);//TODO: change dim of get with loop
+		// int es = num_eigenvals; //TODO: reconcile the variables
+		int matrix_size = complex.number_of_cells(dim);
+		
+		if (num_eigenvals == 0)
+			//compute all
+			num_eigenvals = matrix_size;
+		
 		std::vector<double> vms = {static_cast<double>(matrix_size)};
-		std::vector<double> ves = {static_cast<double>(es)};
+		std::vector<double> ves = {static_cast<double>(num_eigenvals)};
 		using namespace matlab;
 
 		data::ArrayFactory factory;
@@ -656,13 +665,13 @@ public:
 		data::TypedArray<double> mrow = factory.createArray<std::vector<double>::iterator>({ row.size(), 1 }, row.begin(), row.end());
 		data::TypedArray<double> mcol = factory.createArray<std::vector<double>::iterator>({ col.size(), 1 }, col.begin(), col.end());
 		data::TypedArray<double> mval = factory.createArray<std::vector<double>::iterator>({ val.size(), 1 }, val.begin(), val.end());
-		data::TypedArray<double> mes = factory.createArray<std::vector<double>::iterator>({ 1, 1 }, ves.begin(), ves.end());
+		data::TypedArray<double> m_num_eigenvals = factory.createArray<std::vector<double>::iterator>({ 1, 1 }, ves.begin(), ves.end());
 		
 		m_matlab_engine->setVariable(u"size", std::move(mms));
 		m_matlab_engine->setVariable(u"row", std::move(mrow));
 		m_matlab_engine->setVariable(u"col", std::move(mcol));
 		m_matlab_engine->setVariable(u"val", std::move(mval));
-		m_matlab_engine->setVariable(u"es", std::move(mes));
+		m_matlab_engine->setVariable(u"es", std::move(m_num_eigenvals));
 		m_matlab_engine->eval(u"A=sparse(row, col, val, size, size);");
 		m_matlab_engine->eval(u"A=A+speye(size)*1e-12;");
 		m_matlab_engine->eval(u"if size > es \n num = es; \n else \n num = size; \n end \n");
