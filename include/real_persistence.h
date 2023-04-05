@@ -558,14 +558,29 @@ public:
 		for(int i = 0; i < (int) Laplacians.size(); i++){
 			print_Eigen_Sparse(Laplacians[i]);
 		}
-		std::vector<double> eigenvalues = compute_spectra(0, 0);
-	
-		std::cout << "spectra=[";
-		int eval_count = (int) eigenvalues.size();
-		for(int i = 0; i < eval_count; i++){
-			std::cout << eigenvalues[i] << ", ";
+
+		std::vector<std::vector<double>> spectra;
+		for (int dim = min_dimension; dim < max_dimension; dim++){
+			spectra.push_back(compute_spectra(dim,0));
 		}
-		std::cout <<  "]" << std::endl;
+		// std::vector<double> eigenvalues = compute_spectra(0, 0);
+
+		for (int dim = min_dimension; dim < max_dimension; dim++){
+					std::cout << "spectra[" << dim << "]=[";
+			std::vector<double> cur_spectra = spectra[dim];
+			
+			for(int i = 0; i < (int) cur_spectra.size(); i++){
+				std::cout << cur_spectra[i] << ", ";
+			}
+			std::cout << "spectra=]\n" << std::flush;
+		}
+
+		// std::cout << "spectra=[";
+		// int eval_count = (int) eigenvalues.size();
+		// for(int i = 0; i < eval_count; i++){
+		// 	std::cout << eigenvalues[i] << ", ";
+		// }
+		// std::cout <<  "]" << std::endl;
 	
 		complex.finished();
 		output->finished(check_euler_characteristic);
