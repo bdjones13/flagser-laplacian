@@ -610,7 +610,7 @@ public:
 
 	SparseMatrix compute_zeroth_laplacian(){
 		//note we start with coboundaries, not boundaries
-		SparseMatrix d1 = coboundaries[1];
+		SparseMatrix d1 = coboundaries[0];
 		return d1.transpose()*d1;
 	}
 
