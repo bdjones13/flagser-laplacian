@@ -526,11 +526,17 @@ private:
 	index_t euler_characteristic = 0;
 	bool print_betti_numbers_to_console = true;
 
+
+	unsigned short min_dimension;
+	unsigned short max_dimension;
 	// coefficient_t modulus = 0;//2;
 	std::vector<coefficient_t> multiplicative_inverse;
 	std::deque<real_filtration_index_t> columns_to_reduce;
 
+	std::vector<std::vector<value_t>> sorted_filtration_values;
+
 	std::vector<SparseMatrix> coboundaries;
+	std::vector<SparseMatrix> sorted_coboundaries;
 	std::vector<SparseMatrix> Laplacians;
 	std::unique_ptr<matlab::engine::MATLABEngine> m_matlab_engine;
 	// std::vector<std::pair<std::vector<real_compressed_sparse_matrix<real_entry_t>>, std::vector<size_t> >> coboundaries;
@@ -548,6 +554,35 @@ public:
 	
 
 	void set_print_betti_numbers(bool print_betti_numbers) { print_betti_numbers_to_console = print_betti_numbers; }
+
+	void compute_persistent_spectra(unsigned short min_dim = 0,
+									unsigned short max_dim = std::numeric_limits<unsigned short>::max()){
+		min_dimension = min_dim;
+		max_dimension = max_dim;
+
+		compute_coboundaries(min_dimension, max_dimension);
+		std::cout << "\n coboundaries ... \n";
+		for(int i = 0; i < (int) coboundaries.size(); i++){
+			print_Eigen_Sparse(coboundaries[i]);
+		}
+		std::cout << "\n sorting coboundaries ... \n";
+		sort_coboundaries();
+		std::cout << "\n sorted coboundaries ... \n";
+		for(int i = 0; i < (int) sorted_coboundaries.size(); i++){
+			print_Eigen_Sparse(sorted_coboundaries[i]);
+		}
+		
+		std::cout << "\n end sorted coboundaries ... \n";
+
+		// current_filtration = 0; //TODO: better default?
+
+		// while (current_filtration < max_filtration){
+		// 	B_current = B_next;
+		// 	compute_B_next
+
+		// }
+		// return 0;//TODO: replace with the spectra
+	}
 
 	void compute_persistence(unsigned short min_dimension = 0,
 	                         unsigned short max_dimension = std::numeric_limits<unsigned short>::max(),
@@ -567,7 +602,6 @@ public:
             if (spectra[dim].size() == 0)
                 break;
 		}
-		// std::vector<double> eigenvalues = compute_spectra(0, 0);
 
 		for (int dim = min_dimension; dim < max_dimension; dim++){
 					std::cout << "spectra[" << dim << "]=[";
@@ -581,12 +615,6 @@ public:
                 break;
 		}
 
-		// std::cout << "spectra=[";
-		// int eval_count = (int) eigenvalues.size();
-		// for(int i = 0; i < eval_count; i++){
-		// 	std::cout << eigenvalues[i] << ", ";
-		// }
-		// std::cout <<  "]" << std::endl;
 	
 		complex.finished();
 		output->finished(check_euler_characteristic);
@@ -713,8 +741,68 @@ public:
 		return eigenvalues;
 
 	}
+	void compute_coboundaries(unsigned short min_dimension, unsigned short max_dimension){
+		for (auto dimension = 0u; dimension <= max_dimension; ++dimension) {
+			complex.prepare_next_dimension(dimension);
+			coboundaries.push_back(complex.get_coboundary_as_Eigen());
+		}
+	}
 
+	void sort_coboundaries() {
+		// set sorted_coboundaries = coboundary matrix ordered by filtration value then index
+		// set sorted_filtration_values = vec<vec<float>> where sfv[dim][i] = filtration value of sorted_coboundaries 
+		
+		// get the sort order of every dimension first
+		std::vector<std::vector<real_filtration_index_t>> all_filtration_pairs;
+		for(index_t dimension = min_dimension; dimension < max_dimension; dimension++){
+			std::vector<real_filtration_index_t> filtration_pairs;
+			
+			//build the set of real_filtration_index_t to sort
+			index_t num_cells = index_t(complex.number_of_cells(dimension));
+			for(index_t index = 0; index < num_cells; ++index){
+				value_t filtration = complex.filtration(dimension, index);
+				filtration_pairs.push_back(std::make_pair(filtration, index));
+			}
+			std_algorithms::sort(filtration_pairs.begin(), filtration_pairs.end(),
+		                     real_greater_filtration_or_smaller_index<real_filtration_index_t>());
+			all_filtration_pairs.push_back(filtration_pairs);
+		}
+
+		//then do the actual sorting into new matrices
+		for(index_t dimension = min_dimension; dimension < max_dimension; dimension++){
+			SparseMatrix current = coboundaries[dimension];
+			SparseMatrix temp = reorder_columns(current, all_filtration_pairs[dimension]);
+			temp = reorder_rows(temp, all_filtration_pairs[dimension+1]);
+			sorted_coboundaries.push_back(temp);
+		}
+
+	}
+
+	SparseMatrix reorder_columns(SparseMatrix a,std::vector<real_filtration_index_t> order){
+		int num_cols = a.cols();
+		int num_rows = a.rows();
+		SparseMatrix b(num_rows, num_cols);
+		for (int i = 0; i < num_cols; i++){
+			b.col(i) = a.col(get_index(order[i]));
+		}
+		return b;
+	}
+
+	SparseMatrix reorder_rows(SparseMatrix a, std::vector<real_filtration_index_t> order){
+		//https://stackoverflow.com/questions/57858014/permute-columns-of-matrix-in-eigen
+		Eigen::VectorXi indices(a.rows());
+		for (int i = 0; i < (int) indices.size(); i++){
+			indices[i] = get_index(order[i]);
+		}
+
+		Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> P;
+		P.indices() = indices;
+		SparseMatrix b = P*a;
+		return b;
+
+	}
 protected:
+	
 	void compute_zeroth_persistence(unsigned short min_dimension, unsigned short) {
 		complex.prepare_next_dimension(0);
 		coboundaries.push_back(complex.get_coboundary_as_Eigen());
@@ -845,6 +933,15 @@ protected:
 				break;
 			}
 		}
+	}
+
+	void real_sort_columns(SparseMatrix D){
+		// form an std::vector of pairs
+		//	< filtration_value, index, column >
+		// sort that by filtration_value then index
+		// then reassemble
+		
+		
 	}
 
 	void assemble_columns_to_reduce(index_t dimension, pivot_column_index_t& pivot_column_index) {

@@ -18,8 +18,6 @@
 // Compute directed flag complex homology
 //
 
-#include "MatlabEngine.hpp"
-#include "MatlabDataArray.hpp"
 
 #include "../include/complex/real_directed_flag_complex_computer.h"
 #include "../include/complex/directed_flag_complex_in_memory_computer.h"
@@ -57,7 +55,8 @@ void compute_homology(filtered_directed_graph_t& graph, const flagser_parameters
 
 		real_persistence_computer_t<decltype(complex)> persistence_computer(complex, 
 									output.get(), params.max_entries);//params.modulus);
-		persistence_computer.compute_persistence(params.min_dimension, params.max_dimension);
+		persistence_computer.compute_persistent_spectra(params.min_dimension, params.max_dimension);
+		// persistence_computer.compute_persistence(params.min_dimension, params.max_dimension);
 	}
 
 	if (params.split_into_connected_components) { output->print("\n## Total\n"); }
@@ -90,6 +89,6 @@ int main(int argc, char** argv) {
 			// compute_homology<directed_flag_complex_in_memory_computer::directed_flag_complex_in_memory_computer_t>(graph, params); //todo: change coeff
 		// else
 		// Ben Jones 2023-03-16 don't worry about in_memory during development
-			compute_homology<real_directed_flag_complex_computer::real_directed_flag_complex_computer_t>(graph, params); //todo: change coeff - do this one first?
+		compute_homology<real_directed_flag_complex_computer::real_directed_flag_complex_computer_t>(graph, params); //todo: change coeff - do this one first?
 	} catch (const std::exception& e) { std::cout << e.what() << std::endl; }
 }

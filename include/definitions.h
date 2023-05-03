@@ -5,6 +5,13 @@
 #include <string>
 #include <unordered_map>
 
+#include "MatlabEngine.hpp"
+#include "MatlabDataArray.hpp"
+// #include "MatlabCppSharedLib.hpp"
+#include "Eigen/Eigen/Sparse"
+#include "Eigen/Eigen/Dense"
+typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SparseMatrix;
+typedef Eigen::VectorXd ColumnVector;
 // #define USE_GOOGLE_HASHMAP
 // #define REAL_COEFFICIENTS
 
@@ -76,10 +83,4 @@ const coefficient_t modulus = 2;
 #endif
 
 
-#include "MatlabEngine.hpp"
-#include "MatlabDataArray.hpp"
-// #include "MatlabCppSharedLib.hpp"
-#include "Eigen/Eigen/Sparse"
-#include "Eigen/Eigen/Dense"
-typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SparseMatrix;
-typedef Eigen::VectorXd ColumnVector;
+
