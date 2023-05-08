@@ -500,7 +500,7 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 
 			// If we will actually compute coboundaries, then compute the
 			// filtration. Also if we need the face filtrations.
-			if (dimension + 1 >= min_dimension || filtration_algorithm->needs_face_filtration()) {
+			if (dimension != 0 && (dimension + 1 >= min_dimension || filtration_algorithm->needs_face_filtration())) {
 #ifdef INDICATE_PROGRESS
 				std::cout << "\033[K"
 				          << "preparing dimension " << dimension << ": computing the filtration of all "
