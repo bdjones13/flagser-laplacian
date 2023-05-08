@@ -109,6 +109,13 @@ template <typename Entry> struct real_greater_filtration_or_smaller_index {
 	}
 };
 
+template <typename Entry> struct real_smaller_filtration_or_smaller_index {
+	bool operator()(const Entry& a, const Entry& b) {
+		return (get_filtration(a) < get_filtration(b)) ||
+		       ((get_filtration(a) == get_filtration(b)) && (get_index(a) < get_index(b)));
+	}
+};
+
 // enum real_compressed_matrix_layout { LOWER_TRIANGULAR, UPPER_TRIANGULAR };
 
 class real_filtered_union_find {
@@ -529,6 +536,7 @@ private:
 
 	unsigned short min_dimension;
 	unsigned short max_dimension;
+	unsigned short top_dimension;
 	// coefficient_t modulus = 0;//2;
 	std::vector<coefficient_t> multiplicative_inverse;
 	std::deque<real_filtration_index_t> columns_to_reduce;
@@ -745,6 +753,11 @@ public:
 		for (auto dimension = 0u; dimension <= max_dimension; ++dimension) {
 			complex.prepare_next_dimension(dimension);
 			coboundaries.push_back(complex.get_coboundary_as_Eigen());
+			if (complex.is_top_dimension()) {
+				top_dimension = dimension;
+				output->remaining_homology_is_trivial();
+				break;
+			}
 		}
 	}
 
@@ -754,7 +767,7 @@ public:
 		
 		// get the sort order of every dimension first
 		std::vector<std::vector<real_filtration_index_t>> all_filtration_pairs;
-		for(index_t dimension = min_dimension; dimension < max_dimension; dimension++){
+		for(index_t dimension = min_dimension; dimension <= top_dimension; dimension++){
 			std::vector<real_filtration_index_t> filtration_pairs;
 			
 			//build the set of real_filtration_index_t to sort
@@ -764,12 +777,14 @@ public:
 				filtration_pairs.push_back(std::make_pair(filtration, index));
 			}
 			std_algorithms::sort(filtration_pairs.begin(), filtration_pairs.end(),
-		                     real_greater_filtration_or_smaller_index<real_filtration_index_t>());
+		                     real_smaller_filtration_or_smaller_index<real_filtration_index_t>());
 			all_filtration_pairs.push_back(filtration_pairs);
 		}
 
 		//then do the actual sorting into new matrices
-		for(index_t dimension = min_dimension; dimension < max_dimension; dimension++){
+		for(index_t dimension = min_dimension; dimension < top_dimension; dimension++){
+			if (complex.number_of_cells(dimension+1) == 0)
+				break;
 			SparseMatrix current = coboundaries[dimension];
 			SparseMatrix temp = reorder_columns(current, all_filtration_pairs[dimension]);
 			temp = reorder_rows(temp, all_filtration_pairs[dimension+1]);
@@ -790,9 +805,26 @@ public:
 
 	SparseMatrix reorder_rows(SparseMatrix a, std::vector<real_filtration_index_t> order){
 		//https://stackoverflow.com/questions/57858014/permute-columns-of-matrix-in-eigen
+		//Since the SparseMatrix type is column-major, the variable a.row(i) is read-only. We must use
+		//  permutation matrices to reorder the rows of the column-major matrix.
 		Eigen::VectorXi indices(a.rows());
 		for (int i = 0; i < (int) indices.size(); i++){
-			indices[i] = get_index(order[i]);
+			/* Eigen documentation (https://eigen.tuxfamily.org/dox/classEigen_1_1PermutationMatrix.html) as of 2023-05-08
+					"The indices array has the meaning that the permutations sends each integer i to indices[i]."
+					This means it sends the ith row to the indices[i]-th row
+					i.e. b.row(indices[i]) = a.row(i)
+				We have the vector named order sorted to mean that we want to send order[j]th row of a  to the jth row of b
+					i.e. b.row(j) = a.row(order[j])
+				Then "indices[order[i]] = i" will give us a Permutation matrix that for each k:
+					send kth row of a to the to indices[k]th row of b , 
+						here k=order[i], and indices[order[i]] = i, so we send the order[i]th row of a to the ith row of b  
+						This is exactly the meaning we describe above for what we intend the vector order to mean.
+				A more readable algorithm would be:
+						indices[i] = order.index_of(i)
+					but index_of implementations are O(n) and we need to loop over all elements, 
+					which would take O(n^2). Here n=number of simplices in current dimension. 
+			*/
+			indices[get_index(order[i])] = i;
 		}
 
 		Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> P;
