@@ -15,8 +15,8 @@
 #include "output/base.h"
 
 #include "Eigen/Eigen/src/Core/IO.h"
-// #include "MatlabEngine.hpp"
-// #include "MatlabDataArray.hpp"
+#include "MatlabEngine.hpp"
+#include "MatlabDataArray.hpp"
 // // #include "MatlabCppSharedLib.hpp"
 // #include "Eigen/Eigen/Sparse"
 // #include "Eigen/Eigen/Dense"
@@ -577,21 +577,10 @@ public:
 		max_dimension = max_dim;
 
 		compute_coboundaries(min_dimension, max_dimension);
-		// std::cout << "\n\% coboundaries ... \n";
-		// for(int i = 0; i < (int) coboundaries.size(); i++){
-		// 	print_Eigen_Sparse(coboundaries[i]);
-		// }
-		// std::cout << "\n\% sorting coboundaries ... \n";
 		sort_coboundaries();
-		// std::cout << "\n\% sorted coboundaries ... \n";
-		// for(int i = 0; i < (int) sorted_coboundaries.size(); i++){
-		// 	std::cout <<"\ncbdy" << i << "=";
-		// 	print_Eigen_Sparse(sorted_coboundaries[i]);
-		// }
-		// std::cout << "\n\% end sorted coboundaries ... \n";
+		
 		make_boundaries();
 		set_total_filtration();
-		print_all_filtration_pairs();
 
 		std::cout << "\n%matlab list for spectra\n" << "betti0=[];\n"<< "betti1=[];\n"<< "betti2=[]; betti3=[]\n";  
 		for (int i = 0; i < (int) total_filtration.size()-1; i++){
@@ -608,7 +597,6 @@ public:
 					print_Eigen_Sparse(B_a);
 				} 
 				else {
-
 					std::cout << "zeros(0," << indices_of_filtered_boundaries[dim][i]+1 << ");";
 				}			
 
@@ -619,6 +607,7 @@ public:
 					
 					std::cout << "\nB_qp1_L=zeros(" << indices_of_filtered_boundaries[dim][i] << ",0);\n";
 				}
+				call_matlab_PL(0);
 				std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration;
 				std::cout << "\n evals=PL(B_qp1_L,n_qL,n_qK,B_a);\n" << std::flush;
 				std::cout << "betti" << dim << "=[betti" << dim << "; nnz(~evals)];\n"; //matlab code to build a list of betti numbers, like "betti1 = [betti1; 2];"
@@ -733,6 +722,88 @@ public:
 		std::cout << "}(end all_filtration_pairs)" << std::flush << std::endl;
 	}
 
+
+	void matlab_display_cpp(){
+		using namespace matlab::engine;
+		//https://www.mathworks.com/help/matlab/matlab_external/redirect-matlab-command-window-output-to-c.html
+		//matlab debugging to display
+		// Create MATLAB data array factory
+		matlab::data::ArrayFactory factory;
+
+
+		//create variables
+		m_matlab_engine->eval(u"[X,Y] = meshgrid(-2:.2:2);");
+    	m_matlab_engine->eval(u"Z = X.*exp(-X.^2 - Y.^2);");
+		// Create string buffer for standard output
+		typedef std::basic_stringbuf<char16_t> StringBuf;
+		std::shared_ptr<StringBuf> output = std::make_shared<StringBuf>();
+
+		// Display variables in the MATLAB workspace
+		m_matlab_engine->eval(u"whos", output);
+
+		// Display MATLAB output in C++
+		String output_ = output.get()->str();
+		std::cout << convertUTF16StringToUTF8String(output_) << std::endl;
+	}
+
+	std::vector<double> call_matlab_PL(int num_eigenvals){
+		matlab_display_cpp();
+		eigen_sparse_to_matlab_engine("B_a", B_a);
+		// m_matlab_engine->eval("B_a");
+		std::vector<double> dummy;
+		return dummy;
+
+
+
+		// what we want is to store something in 
+		//		B_a (either zeros or the matrix)
+		//  	B_qp1_L (either zeros or the matrix)
+		// 		n_qL, n_qK
+		// call PL(B_qp1_L, n_qL, n_qK, B_a)
+		// and return the eigenvalues in a vector
+
+		// this code is very similar to https://github.com/wangru25/HERMES/blob/main/src/snapshot.cpp
+		// 
+	}
+
+
+	void eigen_sparse_to_matlab_engine(std::string matlab_name, SparseMatrix A){
+		std::vector<double> row, col, val;
+
+		for(int i=0; i < A.outerSize(); ++i){
+			for(SparseMatrix::InnerIterator iter(A,i); iter; ++iter){
+				row.push_back(static_cast<double>(iter.row()+1));
+				col.push_back(static_cast<double>(iter.col()+1));
+				val.push_back(static_cast<double>(iter.value()));
+			}
+		}
+
+		int row_matrix_size = A.rows();
+		int col_matrix_size = A.cols();
+		std::vector<double> rowvms = {static_cast<double>(row_matrix_size)};
+		std::vector<double> colvms = {static_cast<double>(col_matrix_size)};
+
+		using namespace matlab;
+		data::ArrayFactory factory;
+		
+		data::TypedArray<double> rowmms = factory.createArray<std::vector<double>::iterator>({ 1, 1 }, rowvms.begin(), rowvms.end());
+		data::TypedArray<double> colmms = factory.createArray<std::vector<double>::iterator>({ 1, 1 }, colvms.begin(), colvms.end());
+		data::TypedArray<double> mrow = factory.createArray<std::vector<double>::iterator>({ row.size(), 1 }, row.begin(), row.end());
+		data::TypedArray<double> mcol = factory.createArray<std::vector<double>::iterator>({ col.size(), 1 }, col.begin(), col.end());
+		data::TypedArray<double> mval = factory.createArray<std::vector<double>::iterator>({ val.size(), 1 }, val.begin(), val.end());
+
+		m_matlab_engine->setVariable(u"rowsize", std::move(mms));
+		m_matlab_engine->setVariable(u"colsize", std::move(mms));
+		m_matlab_engine->setVariable(u"row", std::move(mrow));
+		m_matlab_engine->setVariable(u"col", std::move(mcol));
+		m_matlab_engine->setVariable(u"val", std::move(mval));
+
+		//takes in a: const matlab::engine::String &statement 
+		std::string command = matlab_name + "=sparse(rowm col, val, rowsize, colsize);"
+		m_matlab_engine->eval(command);
+		// m_matlab_engine->eval(u"A=sparse(row, col, val, size, size);");//TODO name from A to matlab_name
+
+	}
 	std::vector<double> compute_spectra(int dim, int num_eigenvals){
 
 		//most of this code is identical to https://github.com/wangru25/HERMES/blob/main/src/snapshot.cpp
@@ -887,8 +958,6 @@ public:
 		//need to get the max row and max column
 		int next_row_index = indices_of_filtered_boundaries[dim-1][filtration_index];
 		int next_col_index = indices_of_filtered_boundaries[dim][filtration_index];
-		// int next_row_index = index_of_filtered_boundary(dim-1,filtration, filtration_index);
-		// int next_col_index = index_of_filtered_boundary(dim, filtration, filtration_index);
 		
 		B_a = sorted_boundaries[dim-1].block(0,0,next_row_index+1, next_col_index+1);
 	}
@@ -900,9 +969,6 @@ public:
 		int b_row_index = indices_of_filtered_boundaries[dim][filtration_index+1];
 		int b_col_index = indices_of_filtered_boundaries[dim+1][filtration_index+1];
 		int a_row_index = indices_of_filtered_boundaries[dim][filtration_index];	
-		// // int b_row_index = index_of_filtered_boundary(dim,b, filtration_index+1); 
-		// // int b_col_index = index_of_filtered_boundary(dim+1, b, filtration_index+1);
-		// int a_row_index = index_of_filtered_boundary(dim,a, filtration_index);
 
 		B_ab = sorted_boundaries[dim].block(0,0,b_row_index+1, b_col_index+1); 
 		// the last two arguments of .block are the *size* of the matrix, which would occur at index + 1 (https://eigen.tuxfamily.org/dox/group__TutorialBlockOperations.html)
@@ -910,7 +976,6 @@ public:
 		std::cout <<"\n n_qL=" << b_row_index+1 << ";\n n_qK=" << a_row_index+1 << ";\n" << std::flush;//the +1 is because of matlab indexing
 		std::cout << "\n B_qp1_L=" << std::flush;
 		print_Eigen_Sparse(B_ab);
-		std::cout << ";\n" << std::flush;
 	
 	}
 protected:

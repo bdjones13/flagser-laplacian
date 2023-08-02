@@ -578,7 +578,7 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 	
 		flag_complex.for_each_cell(store_coboundaries, dimension);
 
-		std::cout << "end computing the coboundaries." << std::endl << std::flush;
+		// std::cout << "end computing the coboundaries." << std::endl << std::flush;
 		// std::cout << "The coboundaries are:" << std::endl << std::flush;
 		for (size_t i = 0; i < nb_threads; i++) {
 			//this isn't the right interpretation; each compressed_sparse_matrix<real_entry_t> is actually a full matrix
