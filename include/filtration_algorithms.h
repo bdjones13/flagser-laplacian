@@ -27,7 +27,7 @@ template <typename T> inline value_t max(T values, int from, int to) {
 		value_t next_value = values[index];
 		max = index == 0 || next_value > max ? next_value : max;
 	}
-
+	// std::cout << "\nmax=(" << max << ")\n" << std::flush;
 	return max;
 }
 

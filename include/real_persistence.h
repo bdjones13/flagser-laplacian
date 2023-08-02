@@ -9,10 +9,12 @@
 #include <deque>
 #include <iostream>
 #include <queue>
+#include <set>
 
 #include "definitions.h"
 #include "output/base.h"
 
+#include "Eigen/Eigen/src/Core/IO.h"
 // #include "MatlabEngine.hpp"
 // #include "MatlabDataArray.hpp"
 // // #include "MatlabCppSharedLib.hpp"
@@ -541,12 +543,19 @@ private:
 	std::vector<coefficient_t> multiplicative_inverse;
 	std::deque<real_filtration_index_t> columns_to_reduce;
 
-	std::vector<std::vector<value_t>> sorted_filtration_values;
-
+	std::vector<std::vector<real_filtration_index_t>> all_filtration_pairs;
+	std::vector<value_t> total_filtration;
+	std::vector<std::vector<int>> indices_of_filtered_boundaries;			
+	
 	std::vector<SparseMatrix> coboundaries;
 	std::vector<SparseMatrix> sorted_coboundaries;
+	std::vector<SparseMatrix> sorted_boundaries;
 	std::vector<SparseMatrix> Laplacians;
-	std::unique_ptr<matlab::engine::MATLABEngine> m_matlab_engine;
+
+	SparseMatrix B_a;
+	SparseMatrix B_ab;
+
+	// std::unique_ptr<matlab::engine::MATLABEngine> m_matlab_engine; //TODO: re-enable matlab
 	// std::vector<std::pair<std::vector<real_compressed_sparse_matrix<real_entry_t>>, std::vector<size_t> >> coboundaries;
 
 public:
@@ -554,7 +563,7 @@ public:
 	                       size_t _max_entries = std::numeric_limits<size_t>::max(), //int _modulus = 2,
 	                       value_t _max_filtration = std::numeric_limits<value_t>::max())
 	    : complex(_complex), output(_output), max_filtration(_max_filtration), max_entries(_max_entries) {
-			m_matlab_engine = matlab::engine::startMATLAB();
+			//m_matlab_engine = matlab::engine::startMATLAB();//TODO: re-enable matlab
 		}
 
 	    //   multiplicative_inverse(multiplicative_inverse_vector(modulus)) {
@@ -569,27 +578,69 @@ public:
 		max_dimension = max_dim;
 
 		compute_coboundaries(min_dimension, max_dimension);
-		std::cout << "\n coboundaries ... \n";
+		std::cout << "\n\% coboundaries ... \n";
 		for(int i = 0; i < (int) coboundaries.size(); i++){
 			print_Eigen_Sparse(coboundaries[i]);
 		}
-		std::cout << "\n sorting coboundaries ... \n";
+		std::cout << "\n\% sorting coboundaries ... \n";
 		sort_coboundaries();
-		std::cout << "\n sorted coboundaries ... \n";
+		std::cout << "\n\% sorted coboundaries ... \n";
 		for(int i = 0; i < (int) sorted_coboundaries.size(); i++){
+			std::cout <<"\ncbdy" << i << "=";
 			print_Eigen_Sparse(sorted_coboundaries[i]);
 		}
+		std::cout << "\n\% end sorted coboundaries ... \n";
+		make_boundaries();
+		set_total_filtration();
+		print_all_filtration_pairs();
+
+		std::cout << "\n%matlab list for spectra\n" << "betti0=[];\n"<< "betti1=[];\n"<< "betti2=[]; betti3=[]\n";  
+		for (int i = 0; i < (int) total_filtration.size()-1; i++){
 		
-		std::cout << "\n end sorted coboundaries ... \n";
+			double filtration = total_filtration[i];
+			double next_filtration = total_filtration[i+1];
+			
+			for(int dim = min_dim; dim <= top_dimension; dim++){
+				std::cout << "\n\% B_" << filtration << "[" << dim-1 << "] with cols in dim=" << dim << ", rows in dim-1=" << dim-1;
+				std::cout << "\nB_a=" << std::flush;
+				if (dim != min_dim){
+					coboundary_at_filtration(dim,filtration,i);
 
-		// current_filtration = 0; //TODO: better default?
+					print_Eigen_Sparse(B_a);
+				} 
+				else {
+					std::cout << "zeros(0," << index_of_filtered_boundary(dim,filtration,i)+1  << ");"; 
+				}			
 
-		// while (current_filtration < max_filtration){
-		// 	B_current = B_next;
-		// 	compute_B_next
+				if (dim != top_dimension){	
+					coboundary_between_filtrations(dim, filtration, next_filtration,i); 
+				}
+				else{
+					std::cout << "\nB_qp1_L=zeros(" << index_of_filtered_boundary(dim,filtration,i) << ",0);\n";
+				}
 
-		// }
-		// return 0;//TODO: replace with the spectra
+				SparseMatrix L;
+				if (dim == min_dim){ //should only be dim 0, not just lowest
+					L = B_ab*B_ab.transpose();
+				}
+				else if (dim == top_dimension){
+					L = B_a.transpose()*B_a;
+				}
+				else{
+					L = B_ab*B_ab.transpose() + B_a.transpose()*B_a;
+				}
+	
+				std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration;
+				
+				
+				std::cout << "\n evals=PL(B_qp1_L,n_qL,n_qK,B_a);\n" << std::flush;
+				
+				std::cout << "betti" << dim << "=[betti" << dim << "; nnz(~evals)];\n"; //matlab code to build a list of betti numbers, like "betti1 = [betti1; 2];"
+			}
+		
+		}
+		std::cout << "\n\% print matlab lists for spectra\n" << "betti0\n"<< "betti1\n"<< "betti2\n betti3\n";
+		
 	}
 
 	void compute_persistence(unsigned short min_dimension = 0,
@@ -649,7 +700,8 @@ public:
 	}
 
 	void print_Eigen_Sparse(SparseMatrix m){
-		std::cout << "eigen matrix = " << Eigen::MatrixXd(m) << std::endl;
+		Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "];");
+		std::cout << Eigen::MatrixXd(m).format(OctaveFmt)  << std::endl;
 	}
 	void compute_laplacians(){
 		std::cout <<"begin computing laplacians" << std::endl;
@@ -684,6 +736,19 @@ public:
 		return dn*dn.transpose();
 	}
 
+	void print_all_filtration_pairs(){
+		std::cout << "\n\% all_filtration_pairs={" << std::flush;
+		for (int i = 0; i < (int) all_filtration_pairs.size(); i++){
+			std::vector<real_filtration_index_t> filtration_pairs = all_filtration_pairs[i];
+			std::cout << "\n\%filtration_pairs_" << i << "=[" << std::flush;
+			for (int j = 0; j < (int) filtration_pairs.size(); j++){
+				std::cout <<"(" << get_filtration(filtration_pairs[j])<<"," << get_index(filtration_pairs[j]) << "),";
+			}
+			std::cout << "]" << std::flush;
+		}
+		std::cout << "}(end all_filtration_pairs)" << std::flush << std::endl;
+	}
+
 	std::vector<double> compute_spectra(int dim, int num_eigenvals){
 
 		//most of this code is identical to https://github.com/wangru25/HERMES/blob/main/src/snapshot.cpp
@@ -716,42 +781,72 @@ public:
 			//compute all
 			num_eigenvals = matrix_size;
 		
-		std::vector<double> vms = {static_cast<double>(matrix_size)};
-		std::vector<double> ves = {static_cast<double>(num_eigenvals)};
-		using namespace matlab;
 
-		data::ArrayFactory factory;
-		
-		data::TypedArray<double> mms = factory.createArray<std::vector<double>::iterator>({ 1, 1 }, vms.begin(), vms.end());
-		data::TypedArray<double> mrow = factory.createArray<std::vector<double>::iterator>({ row.size(), 1 }, row.begin(), row.end());
-		data::TypedArray<double> mcol = factory.createArray<std::vector<double>::iterator>({ col.size(), 1 }, col.begin(), col.end());
-		data::TypedArray<double> mval = factory.createArray<std::vector<double>::iterator>({ val.size(), 1 }, val.begin(), val.end());
-		data::TypedArray<double> m_num_eigenvals = factory.createArray<std::vector<double>::iterator>({ 1, 1 }, ves.begin(), ves.end());
-		
-		m_matlab_engine->setVariable(u"size", std::move(mms));
-		m_matlab_engine->setVariable(u"row", std::move(mrow));
-		m_matlab_engine->setVariable(u"col", std::move(mcol));
-		m_matlab_engine->setVariable(u"val", std::move(mval));
-		m_matlab_engine->setVariable(u"es", std::move(m_num_eigenvals));
-		m_matlab_engine->eval(u"A=sparse(row, col, val, size, size);");
-		m_matlab_engine->eval(u"A=A+speye(size)*1e-12;");
-		m_matlab_engine->eval(u"if size > es \n num = es; \n else \n num = size; \n end \n");
-		m_matlab_engine->eval(u"[V,D]=eigs((A+A')/2, num, 'smallestabs');");
-		data::TypedArray<double> dd = m_matlab_engine->getVariable(u"D");
-		data::TypedArray<double> vv = m_matlab_engine->getVariable(u"V");
+		//TODO: re-enable matlab
+		// std::vector<double> vms = {static_cast<double>(matrix_size)};
+		// std::vector<double> ves = {static_cast<double>(num_eigenvals)};
+		// using namespace matlab;
 
-		eigenvalues.reserve(dd.getDimensions()[0]);
-		for(int i=0; i<(int)dd.getDimensions()[0]; ++i){
-			eigenvalues.push_back(dd[i][i]);
-		}
+		// data::ArrayFactory factory;
+		
+		// data::TypedArray<double> mms = factory.createArray<std::vector<double>::iterator>({ 1, 1 }, vms.begin(), vms.end());
+		// data::TypedArray<double> mrow = factory.createArray<std::vector<double>::iterator>({ row.size(), 1 }, row.begin(), row.end());
+		// data::TypedArray<double> mcol = factory.createArray<std::vector<double>::iterator>({ col.size(), 1 }, col.begin(), col.end());
+		// data::TypedArray<double> mval = factory.createArray<std::vector<double>::iterator>({ val.size(), 1 }, val.begin(), val.end());
+		// data::TypedArray<double> m_num_eigenvals = factory.createArray<std::vector<double>::iterator>({ 1, 1 }, ves.begin(), ves.end());
+		
+		// m_matlab_engine->setVariable(u"size", std::move(mms));
+		// m_matlab_engine->setVariable(u"row", std::move(mrow));
+		// m_matlab_engine->setVariable(u"col", std::move(mcol));
+		// m_matlab_engine->setVariable(u"val", std::move(mval));
+		// m_matlab_engine->setVariable(u"es", std::move(m_num_eigenvals));
+		// m_matlab_engine->eval(u"A=sparse(row, col, val, size, size);");
+		// m_matlab_engine->eval(u"A=A+speye(size)*1e-12;");
+		// m_matlab_engine->eval(u"if size > es \n num = es; \n else \n num = size; \n end \n");
+		// m_matlab_engine->eval(u"[V,D]=eigs((A+A')/2, num, 'smallestabs');");
+		// data::TypedArray<double> dd = m_matlab_engine->getVariable(u"D");
+		// data::TypedArray<double> vv = m_matlab_engine->getVariable(u"V");
+
+		// eigenvalues.reserve(dd.getDimensions()[0]);
+		// for(int i=0; i<(int)dd.getDimensions()[0]; ++i){
+		// 	eigenvalues.push_back(dd[i][i]);
+		// }
 
 
 		return eigenvalues;
 
 	}
+	void print_filtration_values(unsigned short max_dim){
+		// TODO: remove all references to this function
+		// std::cout << std::flush << "all filtration values:\n" << std::flush;
+		// for (auto dimension = 0u; dimension <= max_dim; ++dimension) {
+		// 	index_t num_cells = index_t(complex.number_of_cells(dimension));
+		// 	std::cout << std::flush << "\n(filtration_of_cells_in_dim"<<dimension <<"=[" << std::flush;//debug
+		// 	for(index_t index = 0; index < num_cells; ++index){
+		// 		value_t filtration = complex.filtration(dimension, index);//TODO: this is bad - it only works for next_filtration, which might not mean what you think it does for dimension
+		// 		std::cout << "(" << filtration << "," << index << "), " << std::flush;//debug
+		// 	}
+		// 	std::cout << "])\n";//debug
+		// }
+	}
 	void compute_coboundaries(unsigned short min_dimension, unsigned short max_dimension){
 		for (auto dimension = 0u; dimension <= max_dimension; ++dimension) {
-			complex.prepare_next_dimension(dimension);
+
+			std::vector<real_filtration_index_t> filtration_pairs;
+			
+			//build the set of real_filtration_index_t to sort
+			index_t num_cells = index_t(complex.number_of_cells(dimension));
+			for(index_t index = 0; index < num_cells; ++index){
+				value_t filtration = complex.filtration(dimension, index);
+				filtration_pairs.push_back(std::make_pair(filtration, index));
+			}
+
+			std_algorithms::sort(filtration_pairs.begin(), filtration_pairs.end(),
+		                     real_smaller_filtration_or_smaller_index<real_filtration_index_t>());
+
+			all_filtration_pairs.push_back(filtration_pairs);
+
+			complex.prepare_next_dimension(dimension);//DEBUG TODO: is this in the right place
 			coboundaries.push_back(complex.get_coboundary_as_Eigen());
 			if (complex.is_top_dimension()) {
 				top_dimension = dimension;
@@ -763,25 +858,7 @@ public:
 
 	void sort_coboundaries() {
 		// set sorted_coboundaries = coboundary matrix ordered by filtration value then index
-		// set sorted_filtration_values = vec<vec<float>> where sfv[dim][i] = filtration value of sorted_coboundaries 
-		
-		// get the sort order of every dimension first
-		std::vector<std::vector<real_filtration_index_t>> all_filtration_pairs;
-		for(index_t dimension = min_dimension; dimension <= top_dimension; dimension++){
-			std::vector<real_filtration_index_t> filtration_pairs;
-			
-			//build the set of real_filtration_index_t to sort
-			index_t num_cells = index_t(complex.number_of_cells(dimension));
-			for(index_t index = 0; index < num_cells; ++index){
-				value_t filtration = complex.filtration(dimension, index);
-				filtration_pairs.push_back(std::make_pair(filtration, index));
-			}
-			std_algorithms::sort(filtration_pairs.begin(), filtration_pairs.end(),
-		                     real_smaller_filtration_or_smaller_index<real_filtration_index_t>());
-			all_filtration_pairs.push_back(filtration_pairs);
-		}
 
-		//then do the actual sorting into new matrices
 		for(index_t dimension = min_dimension; dimension < top_dimension; dimension++){
 			if (complex.number_of_cells(dimension+1) == 0)
 				break;
@@ -833,11 +910,141 @@ public:
 		return b;
 
 	}
+
+	void coboundary_at_filtration(int dim, double filtration, int filtration_index){
+		// TODO: rename to boundary_at_filtration
+		//set B to be B_{dim}^{filtration}
+		//need to get the max row and max column
+		int next_row_index = index_of_filtered_boundary(dim-1,filtration, filtration_index);//TODO this was dim + 1, and other dim, is that okay?
+		int next_col_index = index_of_filtered_boundary(dim, filtration, filtration_index);
+		// std::cout << "\n\% for B_a next_row_index " << next_row_index <<" next_col_index " << next_col_index << std::flush;
+		// std::cout << "\n B when B_a\n" << std::flush;
+		// print_Eigen_Sparse(sorted_boundaries[dim]);
+
+		B_a = sorted_boundaries[dim-1].block(0,0,next_row_index+1, next_col_index+1);//TODO dim or dim-1?
+		// std::cout << "\n\% B_" << filtration << "[" << dim-1 << "] with cols in dim=" << dim << ", rows in dim-1=" << dim-1;
+		// std::cout << "\nB_a=" << std::flush;
+		// print_Eigen_Sparse(B_a);
+	}
+
+	void coboundary_between_filtrations(int dim, double a, double b, int filtration_index){
+		// TODO: rename to boundary_between_filtrations (or diagonal something) 
+		//Set the B_{p}^{a,b} representing \left(i_{p-1}^{a,b}\right)^* \circ d_{p}^b \circ \iota_{p}^{a,b}
+		// This is B_p^b with columns removed (zeroed out) if the boundary of that column is not in C_{p-1}^a
+		// So we go through all columns that are new in B_p^b and not in B_p^a
+		int b_row_index = index_of_filtered_boundary(dim,b, filtration_index+1); // for boundary it probably needs to be a dim-1 type thing? TODO
+		int b_col_index = index_of_filtered_boundary(dim+1, b, filtration_index+1);//before was row_index at dim+1, now is col index at dim+1
+		int a_row_index = index_of_filtered_boundary(dim,a, filtration_index);
+		// int a_col_index = index_of_filtered_boundary(dim+1, a, filtration_index);
+		// std::cout << "\na=" << a << ", b=" << b << std::flush;
+		// std::cout << "\n\% b_row " << b_row_index <<" b_col " << b_col_index << std::flush;
+		// std::cout << "   a_row " << a_row_index <<" a_col " << a_col_index << "\n" << std::flush;
+		// std::cout << "\n\% B_" << a << "," << b << "[" << dim << "] with cols in dim+1=" << dim+1 << ", rows in dim-1=" << dim;
+		SparseMatrix temp_B_ab = sorted_boundaries[dim].block(0,0,b_row_index+1, b_col_index+1); // TODO: function name is coboundary, should be boundaries if using this version; TODO: should be index+1 or index?
+		// the last two arguments of .block are the *size* of the matrix, which would occur at index + 1 (https://eigen.tuxfamily.org/dox/group__TutorialBlockOperations.html)
+		// am I treating this block matrix off by 1?
+		// SparseMatrix temp_B_ab = sorted_coboundaries[dim].block(0,0,b_row_index, b_col_index); 
+		std::cout <<"\n n_qL=" << b_row_index+1 << ";\n n_qK=" << a_row_index+1 << ";\n" << std::flush;//the +1 is because of matlab indexing
+		std::cout << "\n B_qp1_L=" << std::flush;
+		print_Eigen_Sparse(temp_B_ab);
+		std::cout << ";\n" << std::flush;
+		// B_ab = temp_B_ab.block(0,0,a_row_index+1, b_col_index+1);//TODO: should be index+1 or index?
+		// for (int i = a_col_index+1; i <= b_col_index; i++){ //TODO: <= or <?
+		// 	std::cout << "i=" << i <<std::flush;
+		// 	for (int j = a_row_index+1; j <= b_row_index; j++){//TODO: <= or <?
+		// 		std::cout <<"j=" << j << std::flush;
+		// 		std::cout <<"temp_B_ab(j,i)=" << temp_B_ab.coeff(j,i) << std::flush;
+		// 		if (temp_B_ab.coeff(j,i) != 0){
+		// 			//zero out the entire column
+		// 			std::cout << "\n\%0 out column, temp_B_ab.coeff(" << j << "," << i << ")=" << temp_B_ab.coeff(j,i) << "\n" << std::flush;
+		// 			// print_Eigen_Sparse(temp_B_ab);
+		// 			temp_B_ab.col(i) *= 0.0;
+		// 			// std::cout << "\n\%done 0 out column\n" << std::flush;
+		// 			// print_Eigen_Sparse(temp_B_ab);
+		// 			break;
+		// 		}
+		// 	}
+		// }
+		//now send to C_{p-1}^a by projecting away rows/cols from b? I think rows.
+		//Since I want this to be a matrix from C_{p}^{a,b} to C_{p-1}^a, I need to actually remove the rows
+		//These are rows a_row_index+1 to b_row_index, so I just need the block of the current B_ab
+		B_ab = temp_B_ab.block(0,0,a_row_index+1, b_col_index+1);//TODO: should be index+1 or index?
+
+	}
 protected:
-	
+	int index_of_filtered_boundary(int dim,double filtration, int filtration_index){
+		// TODO: refactor to remove this function
+		return indices_of_filtered_boundaries[dim][filtration_index];
+		// // this method is O( (dim)-simplices ) and will be run at each filtration value, 
+		// // which may be O( all simplices ) many filtrations steps.
+		// // a binary search method would be more efficient.
+		// // an iterative method rather than a general function would be most efficient.
+		// std::vector<real_filtration_index_t> filtration_pairs = all_filtration_pairs[dim]; 
+		// // std::cout << "\n\% filtration_pairs=[";
+		// // for (int i = 0; i < (int) filtration_pairs.size(); i++)
+		// // 	std::cout <<"(" << get_filtration(filtration_pairs[i])<<"," << get_index(filtration_pairs[i]) << "),";
+		// // std::cout <<"]\n";
+		// // std::cout << "\n filtration_pairs.size()=" << (int) filtration_pairs.size() << "in dim=" << dim << "\n" << std::flush;
+		// for (int i = 0; i < (int) filtration_pairs.size(); i++){//starting at i = 0 could allow to return -1, which would then get a block matrix of size 0
+		// 	if (get_filtration(filtration_pairs[i]) > filtration) //should it be > or >=? TODO
+		// 		return	i-1;
+		// }
+		// return filtration_pairs.size()-1; //all
+	}
+	void set_indices_of_filtered_boundaries(){
+
+		std::vector<std::vector<int>> temp_indices_of_filtered_boundaries(top_dimension+1,std::vector<int>(total_filtration.size()));
+		for (auto dimension = 0u; dimension <= top_dimension; ++dimension) {
+			std::vector<real_filtration_index_t> filtration_pairs = all_filtration_pairs[dimension];
+			for (int j = 0; j < (int) total_filtration.size(); j++){
+				int k = 0;
+				while (get_filtration(filtration_pairs[k]) <= total_filtration[j] && k < (int) filtration_pairs.size()){//this is should be re-written for clarity.
+					k++;
+				}
+				temp_indices_of_filtered_boundaries[dimension][j] = k-1;
+			}
+		}
+		indices_of_filtered_boundaries = temp_indices_of_filtered_boundaries;
+	}
+	void set_total_filtration(){
+		// std::vector<real_filtration_index_t> total_filtration_vect;
+		std::set<double> total_filtration_set;
+		for (int i = 0; i < (int) all_filtration_pairs.size(); i++){
+			std::vector<real_filtration_index_t> current = all_filtration_pairs[i];
+			for (int j = 0; j < (int) current.size(); j++){
+				total_filtration_set.insert(get_filtration(current[j]));
+			}
+		}
+		for (auto& it: total_filtration_set ){
+			total_filtration.push_back(it);
+		}
+		// we also want to capture the final state, 
+		// e.g. if the filtration values were 0 1 2
+		// and the persistence intervals in dimension 0 would be [0, ) and [1, 2) and [2, ), 
+		// we need to capture things that are born in 2 and don't die by 2.
+		// The simple way to program this is to add a dummy filtration value of 3, because all cells will be in 
+		// both C_2 and C_3, so we will have L_n^{2,3} = L_n^2.
+		// This is not the most efficient way to achieve this.
+		// total_filtration is already in sorted order, so we only need to append a value greater than the last 
+		int count_filtrations = total_filtration.size();
+		double last_filtration = total_filtration[count_filtrations-1];
+		total_filtration.push_back(last_filtration+1.0);
+		
+
+		set_indices_of_filtered_boundaries();
+	}
+
+	void make_boundaries() {
+		for (int i = 0; i < (int) sorted_coboundaries.size(); i++){
+			sorted_boundaries.push_back(sorted_coboundaries[i].transpose());
+		}
+	}
+
 	void compute_zeroth_persistence(unsigned short min_dimension, unsigned short) {
 		complex.prepare_next_dimension(0);
 		coboundaries.push_back(complex.get_coboundary_as_Eigen());
+
+	
 //To just get boundary matrix don't need persistence, Ben Jones 2023-03-13
 // 		// Only compute this if we actually need it
 // 		if (min_dimension > 1) return;
@@ -967,15 +1174,7 @@ protected:
 		}
 	}
 
-	void real_sort_columns(SparseMatrix D){
-		// form an std::vector of pairs
-		//	< filtration_value, index, column >
-		// sort that by filtration_value then index
-		// then reassemble
-		
-		
-	}
-
+	
 	void assemble_columns_to_reduce(index_t dimension, pivot_column_index_t& pivot_column_index) {
 		index_t num_cells = index_t(complex.number_of_cells(dimension + 1));
 

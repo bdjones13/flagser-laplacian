@@ -5,9 +5,10 @@
 #include <string>
 #include <unordered_map>
 
-#include "MatlabEngine.hpp"
-#include "MatlabDataArray.hpp"
-// #include "MatlabCppSharedLib.hpp"
+//TODO: re-enable Matlab (only matlabengine and matlabdataarray, not sharedlib)
+// #include "MatlabEngine.hpp"
+// #include "MatlabDataArray.hpp"
+// // #include "MatlabCppSharedLib.hpp"
 #include "Eigen/Eigen/Sparse"
 #include "Eigen/Eigen/Dense"
 typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SparseMatrix;
