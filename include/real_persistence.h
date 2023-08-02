@@ -118,7 +118,6 @@ template <typename Entry> struct real_smaller_filtration_or_smaller_index {
 	}
 };
 
-// enum real_compressed_matrix_layout { LOWER_TRIANGULAR, UPPER_TRIANGULAR };
 
 class real_filtered_union_find {
 	std::vector<index_t> parent;
@@ -578,18 +577,18 @@ public:
 		max_dimension = max_dim;
 
 		compute_coboundaries(min_dimension, max_dimension);
-		std::cout << "\n\% coboundaries ... \n";
-		for(int i = 0; i < (int) coboundaries.size(); i++){
-			print_Eigen_Sparse(coboundaries[i]);
-		}
-		std::cout << "\n\% sorting coboundaries ... \n";
+		// std::cout << "\n\% coboundaries ... \n";
+		// for(int i = 0; i < (int) coboundaries.size(); i++){
+		// 	print_Eigen_Sparse(coboundaries[i]);
+		// }
+		// std::cout << "\n\% sorting coboundaries ... \n";
 		sort_coboundaries();
-		std::cout << "\n\% sorted coboundaries ... \n";
-		for(int i = 0; i < (int) sorted_coboundaries.size(); i++){
-			std::cout <<"\ncbdy" << i << "=";
-			print_Eigen_Sparse(sorted_coboundaries[i]);
-		}
-		std::cout << "\n\% end sorted coboundaries ... \n";
+		// std::cout << "\n\% sorted coboundaries ... \n";
+		// for(int i = 0; i < (int) sorted_coboundaries.size(); i++){
+		// 	std::cout <<"\ncbdy" << i << "=";
+		// 	print_Eigen_Sparse(sorted_coboundaries[i]);
+		// }
+		// std::cout << "\n\% end sorted coboundaries ... \n";
 		make_boundaries();
 		set_total_filtration();
 		print_all_filtration_pairs();
@@ -604,43 +603,28 @@ public:
 				std::cout << "\n\% B_" << filtration << "[" << dim-1 << "] with cols in dim=" << dim << ", rows in dim-1=" << dim-1;
 				std::cout << "\nB_a=" << std::flush;
 				if (dim != min_dim){
-					coboundary_at_filtration(dim,filtration,i);
+					boundary_at_filtration(dim,filtration,i);
 
 					print_Eigen_Sparse(B_a);
 				} 
 				else {
-					std::cout << "zeros(0," << index_of_filtered_boundary(dim,filtration,i)+1  << ");"; 
+
+					std::cout << "zeros(0," << indices_of_filtered_boundaries[dim][i]+1 << ");";
 				}			
 
 				if (dim != top_dimension){	
-					coboundary_between_filtrations(dim, filtration, next_filtration,i); 
+					boundary_between_filtrations(dim, filtration, next_filtration,i); 
 				}
 				else{
-					std::cout << "\nB_qp1_L=zeros(" << index_of_filtered_boundary(dim,filtration,i) << ",0);\n";
+					
+					std::cout << "\nB_qp1_L=zeros(" << indices_of_filtered_boundaries[dim][i] << ",0);\n";
 				}
-
-				SparseMatrix L;
-				if (dim == min_dim){ //should only be dim 0, not just lowest
-					L = B_ab*B_ab.transpose();
-				}
-				else if (dim == top_dimension){
-					L = B_a.transpose()*B_a;
-				}
-				else{
-					L = B_ab*B_ab.transpose() + B_a.transpose()*B_a;
-				}
-	
 				std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration;
-				
-				
 				std::cout << "\n evals=PL(B_qp1_L,n_qL,n_qK,B_a);\n" << std::flush;
-				
 				std::cout << "betti" << dim << "=[betti" << dim << "; nnz(~evals)];\n"; //matlab code to build a list of betti numbers, like "betti1 = [betti1; 2];"
 			}
-		
 		}
-		std::cout << "\n\% print matlab lists for spectra\n" << "betti0\n"<< "betti1\n"<< "betti2\n betti3\n";
-		
+		std::cout << "\n\% print matlab lists for spectra\n" << "betti0\n"<< "betti1\n"<< "betti2\n betti3\n";	
 	}
 
 	void compute_persistence(unsigned short min_dimension = 0,
@@ -816,19 +800,7 @@ public:
 		return eigenvalues;
 
 	}
-	void print_filtration_values(unsigned short max_dim){
-		// TODO: remove all references to this function
-		// std::cout << std::flush << "all filtration values:\n" << std::flush;
-		// for (auto dimension = 0u; dimension <= max_dim; ++dimension) {
-		// 	index_t num_cells = index_t(complex.number_of_cells(dimension));
-		// 	std::cout << std::flush << "\n(filtration_of_cells_in_dim"<<dimension <<"=[" << std::flush;//debug
-		// 	for(index_t index = 0; index < num_cells; ++index){
-		// 		value_t filtration = complex.filtration(dimension, index);//TODO: this is bad - it only works for next_filtration, which might not mean what you think it does for dimension
-		// 		std::cout << "(" << filtration << "," << index << "), " << std::flush;//debug
-		// 	}
-		// 	std::cout << "])\n";//debug
-		// }
-	}
+
 	void compute_coboundaries(unsigned short min_dimension, unsigned short max_dimension){
 		for (auto dimension = 0u; dimension <= max_dimension; ++dimension) {
 
@@ -858,7 +830,6 @@ public:
 
 	void sort_coboundaries() {
 		// set sorted_coboundaries = coboundary matrix ordered by filtration value then index
-
 		for(index_t dimension = min_dimension; dimension < top_dimension; dimension++){
 			if (complex.number_of_cells(dimension+1) == 0)
 				break;
@@ -911,86 +882,39 @@ public:
 
 	}
 
-	void coboundary_at_filtration(int dim, double filtration, int filtration_index){
-		// TODO: rename to boundary_at_filtration
-		//set B to be B_{dim}^{filtration}
+	void boundary_at_filtration(int dim, double filtration, int filtration_index){
+		//set B_a to be B_{dim}^{filtration}
 		//need to get the max row and max column
-		int next_row_index = index_of_filtered_boundary(dim-1,filtration, filtration_index);//TODO this was dim + 1, and other dim, is that okay?
-		int next_col_index = index_of_filtered_boundary(dim, filtration, filtration_index);
-		// std::cout << "\n\% for B_a next_row_index " << next_row_index <<" next_col_index " << next_col_index << std::flush;
-		// std::cout << "\n B when B_a\n" << std::flush;
-		// print_Eigen_Sparse(sorted_boundaries[dim]);
-
-		B_a = sorted_boundaries[dim-1].block(0,0,next_row_index+1, next_col_index+1);//TODO dim or dim-1?
-		// std::cout << "\n\% B_" << filtration << "[" << dim-1 << "] with cols in dim=" << dim << ", rows in dim-1=" << dim-1;
-		// std::cout << "\nB_a=" << std::flush;
-		// print_Eigen_Sparse(B_a);
+		int next_row_index = indices_of_filtered_boundaries[dim-1][filtration_index];
+		int next_col_index = indices_of_filtered_boundaries[dim][filtration_index];
+		// int next_row_index = index_of_filtered_boundary(dim-1,filtration, filtration_index);
+		// int next_col_index = index_of_filtered_boundary(dim, filtration, filtration_index);
+		
+		B_a = sorted_boundaries[dim-1].block(0,0,next_row_index+1, next_col_index+1);
 	}
 
-	void coboundary_between_filtrations(int dim, double a, double b, int filtration_index){
-		// TODO: rename to boundary_between_filtrations (or diagonal something) 
+	void boundary_between_filtrations(int dim, double a, double b, int filtration_index){
 		//Set the B_{p}^{a,b} representing \left(i_{p-1}^{a,b}\right)^* \circ d_{p}^b \circ \iota_{p}^{a,b}
 		// This is B_p^b with columns removed (zeroed out) if the boundary of that column is not in C_{p-1}^a
 		// So we go through all columns that are new in B_p^b and not in B_p^a
-		int b_row_index = index_of_filtered_boundary(dim,b, filtration_index+1); // for boundary it probably needs to be a dim-1 type thing? TODO
-		int b_col_index = index_of_filtered_boundary(dim+1, b, filtration_index+1);//before was row_index at dim+1, now is col index at dim+1
-		int a_row_index = index_of_filtered_boundary(dim,a, filtration_index);
-		// int a_col_index = index_of_filtered_boundary(dim+1, a, filtration_index);
-		// std::cout << "\na=" << a << ", b=" << b << std::flush;
-		// std::cout << "\n\% b_row " << b_row_index <<" b_col " << b_col_index << std::flush;
-		// std::cout << "   a_row " << a_row_index <<" a_col " << a_col_index << "\n" << std::flush;
-		// std::cout << "\n\% B_" << a << "," << b << "[" << dim << "] with cols in dim+1=" << dim+1 << ", rows in dim-1=" << dim;
-		SparseMatrix temp_B_ab = sorted_boundaries[dim].block(0,0,b_row_index+1, b_col_index+1); // TODO: function name is coboundary, should be boundaries if using this version; TODO: should be index+1 or index?
+		int b_row_index = indices_of_filtered_boundaries[dim][filtration_index+1];
+		int b_col_index = indices_of_filtered_boundaries[dim+1][filtration_index+1];
+		int a_row_index = indices_of_filtered_boundaries[dim][filtration_index];	
+		// // int b_row_index = index_of_filtered_boundary(dim,b, filtration_index+1); 
+		// // int b_col_index = index_of_filtered_boundary(dim+1, b, filtration_index+1);
+		// int a_row_index = index_of_filtered_boundary(dim,a, filtration_index);
+
+		B_ab = sorted_boundaries[dim].block(0,0,b_row_index+1, b_col_index+1); 
 		// the last two arguments of .block are the *size* of the matrix, which would occur at index + 1 (https://eigen.tuxfamily.org/dox/group__TutorialBlockOperations.html)
-		// am I treating this block matrix off by 1?
-		// SparseMatrix temp_B_ab = sorted_coboundaries[dim].block(0,0,b_row_index, b_col_index); 
+
 		std::cout <<"\n n_qL=" << b_row_index+1 << ";\n n_qK=" << a_row_index+1 << ";\n" << std::flush;//the +1 is because of matlab indexing
 		std::cout << "\n B_qp1_L=" << std::flush;
-		print_Eigen_Sparse(temp_B_ab);
+		print_Eigen_Sparse(B_ab);
 		std::cout << ";\n" << std::flush;
-		// B_ab = temp_B_ab.block(0,0,a_row_index+1, b_col_index+1);//TODO: should be index+1 or index?
-		// for (int i = a_col_index+1; i <= b_col_index; i++){ //TODO: <= or <?
-		// 	std::cout << "i=" << i <<std::flush;
-		// 	for (int j = a_row_index+1; j <= b_row_index; j++){//TODO: <= or <?
-		// 		std::cout <<"j=" << j << std::flush;
-		// 		std::cout <<"temp_B_ab(j,i)=" << temp_B_ab.coeff(j,i) << std::flush;
-		// 		if (temp_B_ab.coeff(j,i) != 0){
-		// 			//zero out the entire column
-		// 			std::cout << "\n\%0 out column, temp_B_ab.coeff(" << j << "," << i << ")=" << temp_B_ab.coeff(j,i) << "\n" << std::flush;
-		// 			// print_Eigen_Sparse(temp_B_ab);
-		// 			temp_B_ab.col(i) *= 0.0;
-		// 			// std::cout << "\n\%done 0 out column\n" << std::flush;
-		// 			// print_Eigen_Sparse(temp_B_ab);
-		// 			break;
-		// 		}
-		// 	}
-		// }
-		//now send to C_{p-1}^a by projecting away rows/cols from b? I think rows.
-		//Since I want this to be a matrix from C_{p}^{a,b} to C_{p-1}^a, I need to actually remove the rows
-		//These are rows a_row_index+1 to b_row_index, so I just need the block of the current B_ab
-		B_ab = temp_B_ab.block(0,0,a_row_index+1, b_col_index+1);//TODO: should be index+1 or index?
-
+	
 	}
 protected:
-	int index_of_filtered_boundary(int dim,double filtration, int filtration_index){
-		// TODO: refactor to remove this function
-		return indices_of_filtered_boundaries[dim][filtration_index];
-		// // this method is O( (dim)-simplices ) and will be run at each filtration value, 
-		// // which may be O( all simplices ) many filtrations steps.
-		// // a binary search method would be more efficient.
-		// // an iterative method rather than a general function would be most efficient.
-		// std::vector<real_filtration_index_t> filtration_pairs = all_filtration_pairs[dim]; 
-		// // std::cout << "\n\% filtration_pairs=[";
-		// // for (int i = 0; i < (int) filtration_pairs.size(); i++)
-		// // 	std::cout <<"(" << get_filtration(filtration_pairs[i])<<"," << get_index(filtration_pairs[i]) << "),";
-		// // std::cout <<"]\n";
-		// // std::cout << "\n filtration_pairs.size()=" << (int) filtration_pairs.size() << "in dim=" << dim << "\n" << std::flush;
-		// for (int i = 0; i < (int) filtration_pairs.size(); i++){//starting at i = 0 could allow to return -1, which would then get a block matrix of size 0
-		// 	if (get_filtration(filtration_pairs[i]) > filtration) //should it be > or >=? TODO
-		// 		return	i-1;
-		// }
-		// return filtration_pairs.size()-1; //all
-	}
+
 	void set_indices_of_filtered_boundaries(){
 
 		std::vector<std::vector<int>> temp_indices_of_filtered_boundaries(top_dimension+1,std::vector<int>(total_filtration.size()));
@@ -1007,7 +931,6 @@ protected:
 		indices_of_filtered_boundaries = temp_indices_of_filtered_boundaries;
 	}
 	void set_total_filtration(){
-		// std::vector<real_filtration_index_t> total_filtration_vect;
 		std::set<double> total_filtration_set;
 		for (int i = 0; i < (int) all_filtration_pairs.size(); i++){
 			std::vector<real_filtration_index_t> current = all_filtration_pairs[i];

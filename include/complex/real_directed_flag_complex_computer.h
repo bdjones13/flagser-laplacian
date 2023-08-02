@@ -264,7 +264,6 @@ public:
 
 		assert(dimension == current_dimension + 1);
 		if (dimension == 1) return graph.edge_filtration[index];
-		// std::cout << "\n (dim" << dimension << ",next_filtration[" << index << "]=" << next_filtration[index] << ",address of next_filtration=" << &next_filtration <<")\n";
 		return next_filtration[index];
 	}
 
@@ -300,19 +299,6 @@ public:
 	SparseMatrix get_coboundary_as_Eigen(){
 		return coboundary_as_Eigen;
 	}
-
-	void print_filtration_values(unsigned short max_dim){
-		// std::cout << std::flush << "\nall filtration values:" << std::flush;
-		// for (auto dimension = 0u; dimension <= max_dim; ++dimension) {
-		// 	index_t num_cells = index_t(number_of_cells(dimension));
-		// 	std::cout << std::flush << "\n(filtration_of_cells_in_dim"<<dimension <<"=[" << std::flush;//debug
-		// 	for(index_t index = 0; index < num_cells; ++index){
-		// 		value_t filtration_v = filtration(dimension, index);
-		// 		std::cout << "(" << filtration_v << "," << index << "), " << std::flush;//debug
-		// 	}
-		// 	std::cout << "])\n";//debug
-		// }
-}
 
 };
 
@@ -444,8 +430,6 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 #endif
 	
 	assert(dimension == current_dimension + 1);
-	// std::cout << "debug filtration values 1" << std::flush;
-	// print_filtration_values(dimension+1); //DEBUG
 	current_dimension = dimension;
 	cell_hasher_t::set_current_cell_dimension(dimension + 1);
 	cell_count.resize(dimension + 2);
@@ -454,8 +438,7 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 	for (auto p : coboundary_matrix) { p.clear(); }
 	if (dimension > max_dimension) return;// || _is_top_dimension) return;
 
-	// std::cout << "debug filtration values 2" << std::flush;
-	// print_filtration_values(dimension+1); //DEBUG
+
 // 	if (cache != "") {
 // #ifdef USE_COEFFICIENTS
 // 		// TODO: Make this work
@@ -507,8 +490,6 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 
 	{
 		if (filtration_algorithm != nullptr) {
-			// std::cout << "debug filtration values 3" << std::flush;
-			// print_filtration_values(dimension+1); //DEBUG
 			// Add the current and next cells into the hash and compute the new
 			// filtration
 			std::vector<cell_hash_map_t> _cache_current_cells(nb_threads);
@@ -518,17 +499,12 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 				init_current_cell_cache.push_back(add_cell_index_to_cache_t(_cache_current_cells[i]));
 			}
 			cell_hasher_t::set_current_cell_dimension(dimension);
-			// Add the current cells into the cache if the filtration algorithm
-			// needs them
-			// std::cout << "debug filtration values 4" << std::flush;
-			// print_filtration_values(dimension+1); //DEBUG
+			// Add the current cells into the cache if the filtration algorithm needs them
 
 			if (filtration_algorithm->needs_face_filtration())
 				flag_complex.for_each_cell(init_current_cell_cache, dimension);
 			// If we will actually compute coboundaries, then compute the
 			// filtration. Also if we need the face filtrations.
-			// std::cout << "debug filtration values 5" << std::flush;
-			// print_filtration_values(dimension+1); //DEBUG
 
 			if (dimension != 0 && (dimension + 1 >= min_dimension || filtration_algorithm->needs_face_filtration())) {
 #ifdef INDICATE_PROGRESS
@@ -545,47 +521,22 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 					    filtration_algorithm, graph, dimension == 1 ? graph.edge_filtration : next_filtration,
 					    _cache_current_cells, nb_threads, _cache_current_cells_offsets.data()));
 				}
-				// std::cout << "debug filtration values 6" << std::flush;
-				// print_filtration_values(dimension+1); //DEBUG
 				flag_complex.for_each_cell(compute_filtration, dimension + 1);
-				// std::cout << "debug filtration values 7" << std::flush;
-				// print_filtration_values(dimension+1); //DEBUG
 				size_t _cell_count = 0;
 				for (size_t i = 0; i < nb_threads; i++) _cell_count += compute_filtration[i].number_of_cells();
 				cell_count[dimension + 1] = _cell_count;
 				if (_cell_count == 0) _is_top_dimension = true;
-				// std::cout << "debug filtration values 8" << std::flush;
-				// print_filtration_values(dimension+1); //DEBUG
 				// Combine the filtration
 				next_filtration.clear();
-				next_filtration.reserve(_cell_count);
-				// std::cout << "debug filtration values 9" << std::flush;
-				// print_filtration_values(dimension+1); //DEBUG
-				// std::cout <<"\n build next_filtration dim+1=" << dimension+1 << "\n";
+				next_filtration.reserve(_cell_count);;
 				for (size_t i = 0; i < nb_threads; i++) {
 					for (auto f : compute_filtration[i].filtration()){ 
-						// std::cout << "debug filtration values before pushback" << std::flush;
-						// print_filtration_values(dimension+1); //DEBUG
-
-						// std::cout <<"\n dumping some information about next_filtration and f";
-						// std::cout <<"\n next_filtration address=" << &next_filtration << ", f address" << &f;
-						
-
 						next_filtration.push_back(f);
-						
-						// std::cout << "\npushback " << f << ", \n" << std::flush;
-						// std::cout << "debug filtration values after pushback" << std::flush;
-						// print_filtration_values(dimension+1); //DEBUG
 					}
 				}
 
-				// std::cout << "debug filtration values 10" << std::flush;
-				// print_filtration_values(dimension+1); //DEBUG
 			}
 		}
-		// std::cout << "debug filtration values 11" << std::flush;
-		// print_filtration_values(dimension+1); //DEBUG
-
 		// If we do not want the homology in the next degree, then we can stop
 		// here
 		if (dimension + 1 < min_dimension) return;
@@ -628,38 +579,25 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 		flag_complex.for_each_cell(store_coboundaries, dimension);
 
 		std::cout << "end computing the coboundaries." << std::endl << std::flush;
-		std::cout << "The coboundaries are:" << std::endl << std::flush;
+		// std::cout << "The coboundaries are:" << std::endl << std::flush;
 		for (size_t i = 0; i < nb_threads; i++) {
 			//this isn't the right interpretation; each compressed_sparse_matrix<real_entry_t> is actually a full matrix
 			std::cout << "cell count in dimension " << dimension + 1 << " is " << _cell_count << std::endl << std::flush; //this is not correct for dimension
 			real_compressed_sparse_matrix<real_entry_t> col = coboundary_matrix[i];
 			// col.print();			
-			col.print_uncompressed(int(cell_count[dimension+1])); // might be dimension +/- 1
+			// col.print_uncompressed(int(cell_count[dimension+1])); // might be dimension +/- 1
 			coboundary_as_Eigen = col.to_Eigen(int(cell_count[dimension+1]),int(cell_count[dimension]),dimension);
 
 		}
-		std::cout << "end printing coboundaries." << std::endl << std::flush;
-		// std::cout << "debug filtration values 16" << std::flush;
-		// print_filtration_values(dimension+1); //DEBUG
-		// std::cout <<"\n(2next_filtration=[";
-		// 		for (int i = 0; i < (int) next_filtration.size(); i++){
-		// 			std::cout << next_filtration[i] << ", ";
-		// 		}
-		// std::cout << "])\n" << std::flush;
-
+		// std::cout << "end printing coboundaries." << std::endl << std::flush;
+		
 		_cell_count = 0;
 		for (size_t i = 0; i < nb_threads; i++) {
 			coboundary_matrix_offsets[i] = _cell_count;
 			_cell_count += coboundary_matrix[i].size();
 		}
 		cell_count[dimension] = _cell_count;
-		// std::cout << "debug filtration values 17" << std::flush;
-		// print_filtration_values(dimension+1); //DEBUG
-		// std::cout <<"\n(8next_filtration=[";
-		// 		for (int i = 0; i < (int) next_filtration.size(); i++){
-		// 			std::cout << next_filtration[i] << ", ";
-		// 		}
-		// 		std::cout << "])\n" << std::flush;
+		
 #ifdef INDICATE_PROGRESS
 		std::cout << "\033[K"
 		          << "preparing dimension " << dimension
@@ -696,12 +634,5 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 		for (auto f : next_filtration) o.write((char*)&f, sizeof(value_t));
 		o.close();
 	}
-	// std::cout << "debug filtration values 18" << std::flush;
-	// print_filtration_values(dimension+1); //DEBUG
-	// std::cout <<"\n(9next_filtration=[";
-	// 			for (int i = 0; i < (int) next_filtration.size(); i++){
-	// 				std::cout << next_filtration[i] << ", ";
-	// 			}
-	// 			std::cout << "])\n" << std::flush;
 }
 } // namespace directed_flag_complex_computer
