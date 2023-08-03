@@ -553,8 +553,9 @@ private:
 
 	SparseMatrix B_a;
 	SparseMatrix B_ab;
-
-	// std::unique_ptr<matlab::engine::MATLABEngine> m_matlab_engine; //TODO: re-enable matlab
+#ifdef USE_MATLAB
+	std::unique_ptr<matlab::engine::MATLABEngine> m_matlab_engine;
+#endif
 	// std::vector<std::pair<std::vector<real_compressed_sparse_matrix<real_entry_t>>, std::vector<size_t> >> coboundaries;
 
 public:
@@ -562,7 +563,9 @@ public:
 	                       size_t _max_entries = std::numeric_limits<size_t>::max(), //int _modulus = 2,
 	                       value_t _max_filtration = std::numeric_limits<value_t>::max())
 	    : complex(_complex), output(_output), max_filtration(_max_filtration), max_entries(_max_entries) {
-			//m_matlab_engine = matlab::engine::startMATLAB();//TODO: re-enable matlab
+#ifdef USE_MATLAB
+			m_matlab_engine = matlab::engine::startMATLAB();
+#endif
 		}
 
 	    //   multiplicative_inverse(multiplicative_inverse_vector(modulus)) {
@@ -722,7 +725,7 @@ public:
 		std::cout << "}(end all_filtration_pairs)" << std::flush << std::endl;
 	}
 
-
+#ifdef USE_MATLAB
 	void matlab_display_cpp(){
 		using namespace matlab::engine;
 		//https://www.mathworks.com/help/matlab/matlab_external/redirect-matlab-command-window-output-to-c.html
@@ -792,18 +795,25 @@ public:
 		data::TypedArray<double> mcol = factory.createArray<std::vector<double>::iterator>({ col.size(), 1 }, col.begin(), col.end());
 		data::TypedArray<double> mval = factory.createArray<std::vector<double>::iterator>({ val.size(), 1 }, val.begin(), val.end());
 
-		m_matlab_engine->setVariable(u"rowsize", std::move(mms));
-		m_matlab_engine->setVariable(u"colsize", std::move(mms));
+		m_matlab_engine->setVariable(u"rowsize", std::move(rowmms));
+		m_matlab_engine->setVariable(u"colsize", std::move(colmms));
 		m_matlab_engine->setVariable(u"row", std::move(mrow));
 		m_matlab_engine->setVariable(u"col", std::move(mcol));
 		m_matlab_engine->setVariable(u"val", std::move(mval));
 
 		//takes in a: const matlab::engine::String &statement 
-		std::string command = matlab_name + "=sparse(rowm col, val, rowsize, colsize);"
+		std::string command = matlab_name + "=sparse(row, col, val, rowsize, colsize);"
 		m_matlab_engine->eval(command);
 		// m_matlab_engine->eval(u"A=sparse(row, col, val, size, size);");//TODO name from A to matlab_name
 
 	}
+#else
+	std::vector<double> call_matlab_PL(int num_eigenvals){
+		std::vector<double> dummy;
+		return dummy;
+	}
+#endif
+
 	std::vector<double> compute_spectra(int dim, int num_eigenvals){
 
 		//most of this code is identical to https://github.com/wangru25/HERMES/blob/main/src/snapshot.cpp

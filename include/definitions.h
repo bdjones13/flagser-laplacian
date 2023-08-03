@@ -15,7 +15,7 @@ typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SparseMatrix;
 typedef Eigen::VectorXd ColumnVector;
 // #define USE_GOOGLE_HASHMAP
 // #define REAL_COEFFICIENTS
-
+// #define USE_MATLAB
 
 #ifndef MANY_VERTICES
 // Assume that we have at most 65k vertices, and that there are at most ~2 billion cells
