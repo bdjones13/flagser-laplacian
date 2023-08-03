@@ -751,7 +751,7 @@ public:
 
 	std::vector<double> call_matlab_PL(int num_eigenvals){
 		matlab_display_cpp();
-		eigen_sparse_to_matlab_engine("B_a", B_a);
+		eigen_sparse_to_matlab_engine(u"B_a", B_a);
 		// m_matlab_engine->eval("B_a");
 		std::vector<double> dummy;
 		return dummy;
@@ -770,7 +770,7 @@ public:
 	}
 
 
-	void eigen_sparse_to_matlab_engine(std::string matlab_name, SparseMatrix A){
+	void eigen_sparse_to_matlab_engine(std::u16string matlab_name, SparseMatrix A){
 		std::vector<double> row, col, val;
 
 		for(int i=0; i < A.outerSize(); ++i){
@@ -802,7 +802,7 @@ public:
 		m_matlab_engine->setVariable(u"val", std::move(mval));
 
 		//takes in a: const matlab::engine::String &statement 
-		std::string command = matlab_name + "=sparse(row, col, val, rowsize, colsize);"
+		std::u16string command = matlab_name + u"=sparse(row, col, val, rowsize, colsize);";
 		m_matlab_engine->eval(command);
 		// m_matlab_engine->eval(u"A=sparse(row, col, val, size, size);");//TODO name from A to matlab_name
 
