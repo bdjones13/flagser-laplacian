@@ -10,7 +10,7 @@ flagser-count
 flagser-coefficients
 flagser-coefficients-memory
 *.dSYM
-*.flag
+# *.flag
 *.homology
 *.h5
 *.png
