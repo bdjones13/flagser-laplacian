@@ -766,6 +766,7 @@ public:
 			if (n_qK == n_qL){
 				m_matlab_engine->eval(u"L_up = B_qp1_L*B_qp1_L';");
 			} else{
+				m_matlab_engine->eval(u"diff = n_qL-n_qK;");
 				m_matlab_engine->eval(u"D = B_qp1_L(n_qK+1:n_qL,:);");
 				m_matlab_engine->eval(u"[~, num_cols_D] = size(D);");
 				m_matlab_engine->eval(u"D_temp = [D' eye(num_cols_D)];");
@@ -822,9 +823,16 @@ public:
 		// m_matlab_engine->eval(u"		evals = eigs(L,num_eigenvals, 'smallestabs');");
 		// m_matlab_engine->eval(u"		evals(evals < tol) = 0;");
 		// m_matlab_engine->eval(u"end");
+		matlab::data::TypedArray<double> matlab_evals = m_matlab_engine->getVariable(u"evals");
+		std::vector<double> evals;
+		std::cout <<"transfer eigenvalues" << std::endl;
+		for(int i =0; i < (int) matlab_evals.getDimensions()[0]; ++i){
+			evals.push_back(matlab_evals[i][i]);
+			std::cout << matlab_evals[i][i] << " " << std::flush;
+		}
+		std::cout <<"\n done transfer eigenvalues" << std::endl;
 
-		std::vector<double> dummy;
-		return dummy;
+		return evals;
 
 	}
 
