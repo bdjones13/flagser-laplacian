@@ -610,7 +610,7 @@ public:
 					
 					std::cout << "\nB_qp1_L=zeros(" << indices_of_filtered_boundaries[dim][i] << ",0);\n";
 				}
-				call_matlab_PL(0);
+				call_matlab_PL(0,dim,i);
 				std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration;
 				std::cout << "\n evals=PL(B_qp1_L,n_qL,n_qK,B_a);\n" << std::flush;
 				std::cout << "betti" << dim << "=[betti" << dim << "; nnz(~evals)];\n"; //matlab code to build a list of betti numbers, like "betti1 = [betti1; 2];"
@@ -749,57 +749,57 @@ public:
 		std::cout << convertUTF16StringToUTF8String(output_) << std::endl;
 	}
 
-	std::vector<double> call_matlab_PL(int num_eigenvals, int dim){
+	std::vector<double> call_matlab_PL(int num_eigenvals, int dim, int current_filtration){
 		matlab_display_cpp();
 		
-		set_matlab_variables(dim);
+		set_matlab_variables(num_eigenvals, dim, current_filtration);
 
 		//Below is a matlab implementation of algorithm 3.1 From the paper "Persistent Laplacians: Properties, Algorithms and Implications" by Memoli, Wan, and Wang, 2022.
 
-		m_matlab_engine->eval("tol = 1e-8;");
-		m_matlab_engine->eval("L_down = B_a'*B_a;");
+		m_matlab_engine->eval(u"tol = 1e-8;");
+		m_matlab_engine->eval(u"L_down = B_a'*B_a;");
 
-		m_matlab_engine->eval("if isempty(B_qp1_L)");
-		m_matlab_engine->eval("		L = L_down;");
-		m_matlab_engine->eval("		evals = eigs(L, num_eigenvals, 'smallestabs');");
-		m_matlab_engine->eval("		evals(evals < tol) = 0;");
-		m_matlab_engine->eval("else");
+		m_matlab_engine->eval(u"if isempty(B_qp1_L)");
+		m_matlab_engine->eval(u"		L = L_down;");
+		m_matlab_engine->eval(u"		evals = eigs(L, num_eigenvals, 'smallestabs');");
+		m_matlab_engine->eval(u"		evals(evals < tol) = 0;");
+		m_matlab_engine->eval(u"else");
 
-		m_matlab_engine->eval("		diff = n_qL-n_qK;");
-		m_matlab_engine->eval("		if n_qL == n_qK");
-		m_matlab_engine->eval("			L_up = B_qp1_L*B_qp1_L';");
-		m_matlab_engine->eval("		else");
-		m_matlab_engine->eval("			D = B_qp1_L(n_qK+1:n_qL,:);");
-		m_matlab_engine->eval("			[~, num_cols_D] = size(D);");
-		m_matlab_engine->eval("			D_temp = [D' eye(num_cols_D)];");
-		m_matlab_engine->eval("			reduction = rref(D_temp);");
-		m_matlab_engine->eval("			R_qp1_L = reduction(:,1:diff)';");
-		m_matlab_engine->eval("			Y = reduction(:,diff+1:end)';");
-		// m_matlab_engine->eval("			assert(isequal(D*Y,R_qp1_L))");
+		m_matlab_engine->eval(u"		diff = n_qL-n_qK;");
+		m_matlab_engine->eval(u"		if n_qL == n_qK");
+		m_matlab_engine->eval(u"			L_up = B_qp1_L*B_qp1_L';");
+		m_matlab_engine->eval(u"		else");
+		m_matlab_engine->eval(u"			D = B_qp1_L(n_qK+1:n_qL,:);");
+		m_matlab_engine->eval(u"			[~, num_cols_D] = size(D);");
+		m_matlab_engine->eval(u"			D_temp = [D' eye(num_cols_D)];");
+		m_matlab_engine->eval(u"			reduction = rref(D_temp);");
+		m_matlab_engine->eval(u"			R_qp1_L = reduction(:,1:diff)';");
+		m_matlab_engine->eval(u"			Y = reduction(:,diff+1:end)';");
+		// m_matlab_engine->eval(u"			assert(isequal(D*Y,R_qp1_L))");
 		
-		m_matlab_engine->eval("			I = find(all(R_qp1_L==0,1));");
-		m_matlab_engine->eval("			Z = Y(:,I);");
-		m_matlab_engine->eval("			Z = orth(Z);");
+		m_matlab_engine->eval(u"			I = find(all(R_qp1_L==0,1));");
+		m_matlab_engine->eval(u"			Z = Y(:,I);");
+		m_matlab_engine->eval(u"			Z = orth(Z);");
 
-		m_matlab_engine->eval("			B_qp1_L_K_temp = B_qp1_L*Z;");
-		// m_matlab_engine->eval("			B_qp1_L_K_temp = B_qp1_L*Y;");
+		m_matlab_engine->eval(u"			B_qp1_L_K_temp = B_qp1_L*Z;");
+		// m_matlab_engine->eval(u"			B_qp1_L_K_temp = B_qp1_L*Y;");
 		
-		m_matlab_engine->eval("			B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,:);");
-		// m_matlab_engine->eval("			B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,I);");
-		m_matlab_engine->eval("			L_up = B_qp1_L_K*B_qp1_L_K';");		
-		// m_matlab_engine->eval("			L_up = B_qp1_L_K*inv(Z'*Z)*B_qp1_L_K';");
-		m_matlab_engine->eval("		end");
-		m_matlab_engine->eval("		L = L_up + L_down;");
-		m_matlab_engine->eval("		evals = eigs(L,num_eigenvals, 'smallestabs');");
-		m_matlab_engine->eval("		evals(evals < tol) = 0;");
-		m_matlab_engine->eval("end");
+		m_matlab_engine->eval(u"			B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,:);");
+		// m_matlab_engine->eval(u"			B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,I);");
+		m_matlab_engine->eval(u"			L_up = B_qp1_L_K*B_qp1_L_K';");		
+		// m_matlab_engine->eval(u"			L_up = B_qp1_L_K*inv(Z'*Z)*B_qp1_L_K';");
+		m_matlab_engine->eval(u"		end");
+		m_matlab_engine->eval(u"		L = L_up + L_down;");
+		m_matlab_engine->eval(u"		evals = eigs(L,num_eigenvals, 'smallestabs');");
+		m_matlab_engine->eval(u"		evals(evals < tol) = 0;");
+		m_matlab_engine->eval(u"end");
 
 		std::vector<double> dummy;
 		return dummy;
 
 	}
 
-	void set_matlab_variables(int num_eigenvals, int dim){
+	void set_matlab_variables(int num_eigenvals, int dim, int i){
 
 		int n_qK = indices_of_filtered_boundaries[dim][i]+1;
 		int n_qL = indices_of_filtered_boundaries[dim][i+1]+1;
