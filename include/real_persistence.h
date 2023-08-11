@@ -749,60 +749,89 @@ public:
 		std::cout << convertUTF16StringToUTF8String(output_) << std::endl;
 	}
 
-	std::vector<double> call_matlab_PL(int num_eigenvals, int dim, int current_filtration){
+	std::vector<double> call_matlab_PL(int num_eigenvals, int dim, int i){
 		matlab_display_cpp();
-		
-		set_matlab_variables(num_eigenvals, dim, current_filtration);
+		int n_qK = indices_of_filtered_boundaries[dim][i]+1;
+		int n_qL = indices_of_filtered_boundaries[dim][i+1]+1;
+		set_matlab_variables(num_eigenvals, dim, i,n_qK,n_qL);
 
 		//Below is a matlab implementation of algorithm 3.1 From the paper "Persistent Laplacians: Properties, Algorithms and Implications" by Memoli, Wan, and Wang, 2022.
-
+		//TODO rewrite so that all the if-stuff is done by C++
+		// only need the matlab stuff for evals and reduction. So if we have top dim case
 		m_matlab_engine->eval(u"tol = 1e-8;");
 		m_matlab_engine->eval(u"L_down = B_a'*B_a;");
+		if (dim == top_dimension){
+			m_matlab_engine->eval(u"L=L_down;");
+		} else {
+			if (n_qK == n_qL){
+				m_matlab_engine->eval(u"L_up = B_qp1_L*B_qp1_L';");
+			} else{
+				m_matlab_engine->eval(u"D = B_qp1_L(n_qK+1:n_qL,:);");
+				m_matlab_engine->eval(u"[~, num_cols_D] = size(D);");
+				m_matlab_engine->eval(u"D_temp = [D' eye(num_cols_D)];");
+				m_matlab_engine->eval(u"reduction = rref(D_temp);");
+				m_matlab_engine->eval(u"R_qp1_L = reduction(:,1:diff)';");
+				m_matlab_engine->eval(u"Y = reduction(:,diff+1:end)';");
+				m_matlab_engine->eval(u"I = find(all(R_qp1_L==0,1));");
+				m_matlab_engine->eval(u"Z = Y(:,I);");
+				m_matlab_engine->eval(u"Z = orth(Z);");
 
-		m_matlab_engine->eval(u"if isempty(B_qp1_L)");
-		m_matlab_engine->eval(u"		L = L_down;");
-		m_matlab_engine->eval(u"		evals = eigs(L, num_eigenvals, 'smallestabs');");
-		m_matlab_engine->eval(u"		evals(evals < tol) = 0;");
-		m_matlab_engine->eval(u"else");
+				m_matlab_engine->eval(u"B_qp1_L_K_temp = B_qp1_L*Z;");
+				
+				m_matlab_engine->eval(u"B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,:);");
+				m_matlab_engine->eval(u"L_up = B_qp1_L_K*B_qp1_L_K';");		
 
-		m_matlab_engine->eval(u"		diff = n_qL-n_qK;");
-		m_matlab_engine->eval(u"		if n_qL == n_qK");
-		m_matlab_engine->eval(u"			L_up = B_qp1_L*B_qp1_L';");
-		m_matlab_engine->eval(u"		else");
-		m_matlab_engine->eval(u"			D = B_qp1_L(n_qK+1:n_qL,:);");
-		m_matlab_engine->eval(u"			[~, num_cols_D] = size(D);");
-		m_matlab_engine->eval(u"			D_temp = [D' eye(num_cols_D)];");
-		m_matlab_engine->eval(u"			reduction = rref(D_temp);");
-		m_matlab_engine->eval(u"			R_qp1_L = reduction(:,1:diff)';");
-		m_matlab_engine->eval(u"			Y = reduction(:,diff+1:end)';");
-		// m_matlab_engine->eval(u"			assert(isequal(D*Y,R_qp1_L))");
 		
-		m_matlab_engine->eval(u"			I = find(all(R_qp1_L==0,1));");
-		m_matlab_engine->eval(u"			Z = Y(:,I);");
-		m_matlab_engine->eval(u"			Z = orth(Z);");
+			}
 
-		m_matlab_engine->eval(u"			B_qp1_L_K_temp = B_qp1_L*Z;");
-		// m_matlab_engine->eval(u"			B_qp1_L_K_temp = B_qp1_L*Y;");
+			m_matlab_engine->eval(u"L = L_up + L_down;");
+		}
+		m_matlab_engine->eval(u"evals = eigs(L,num_eigenvals, 'smallestabs');");
+		m_matlab_engine->eval(u"evals(evals < tol) = 0;");
+		// m_matlab_engine->eval(u"if isempty(B_qp1_L)");
+		// m_matlab_engine->eval(u"		L = L_down;");
+		// m_matlab_engine->eval(u"		evals = eigs(L, num_eigenvals, 'smallestabs');");
+		// m_matlab_engine->eval(u"		evals(evals < tol) = 0;");
+		// m_matlab_engine->eval(u"else");
+
+		// m_matlab_engine->eval(u"		diff = n_qL-n_qK;");
+		// m_matlab_engine->eval(u"		if n_qL == n_qK");
+		// m_matlab_engine->eval(u"			L_up = B_qp1_L*B_qp1_L';");
+		// m_matlab_engine->eval(u"		else");
+		// m_matlab_engine->eval(u"			D = B_qp1_L(n_qK+1:n_qL,:);");
+		// m_matlab_engine->eval(u"			[~, num_cols_D] = size(D);");
+		// m_matlab_engine->eval(u"			D_temp = [D' eye(num_cols_D)];");
+		// m_matlab_engine->eval(u"			reduction = rref(D_temp);");
+		// m_matlab_engine->eval(u"			R_qp1_L = reduction(:,1:diff)';");
+		// m_matlab_engine->eval(u"			Y = reduction(:,diff+1:end)';");
+		// // m_matlab_engine->eval(u"			assert(isequal(D*Y,R_qp1_L))");
 		
-		m_matlab_engine->eval(u"			B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,:);");
-		// m_matlab_engine->eval(u"			B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,I);");
-		m_matlab_engine->eval(u"			L_up = B_qp1_L_K*B_qp1_L_K';");		
-		// m_matlab_engine->eval(u"			L_up = B_qp1_L_K*inv(Z'*Z)*B_qp1_L_K';");
-		m_matlab_engine->eval(u"		end");
-		m_matlab_engine->eval(u"		L = L_up + L_down;");
-		m_matlab_engine->eval(u"		evals = eigs(L,num_eigenvals, 'smallestabs');");
-		m_matlab_engine->eval(u"		evals(evals < tol) = 0;");
-		m_matlab_engine->eval(u"end");
+		// m_matlab_engine->eval(u"			I = find(all(R_qp1_L==0,1));");
+		// m_matlab_engine->eval(u"			Z = Y(:,I);");
+		// m_matlab_engine->eval(u"			Z = orth(Z);");
+
+		// m_matlab_engine->eval(u"			B_qp1_L_K_temp = B_qp1_L*Z;");
+		// // m_matlab_engine->eval(u"			B_qp1_L_K_temp = B_qp1_L*Y;");
+		
+		// m_matlab_engine->eval(u"			B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,:);");
+		// // m_matlab_engine->eval(u"			B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,I);");
+		// m_matlab_engine->eval(u"			L_up = B_qp1_L_K*B_qp1_L_K';");		
+		// // m_matlab_engine->eval(u"			L_up = B_qp1_L_K*inv(Z'*Z)*B_qp1_L_K';");
+		// m_matlab_engine->eval(u"		end");
+		// m_matlab_engine->eval(u"		L = L_up + L_down;");
+		// m_matlab_engine->eval(u"		evals = eigs(L,num_eigenvals, 'smallestabs');");
+		// m_matlab_engine->eval(u"		evals(evals < tol) = 0;");
+		// m_matlab_engine->eval(u"end");
 
 		std::vector<double> dummy;
 		return dummy;
 
 	}
 
-	void set_matlab_variables(int num_eigenvals, int dim, int i){
+	void set_matlab_variables(int num_eigenvals, int dim, int i, int n_qK, int n_qL){
 
-		int n_qK = indices_of_filtered_boundaries[dim][i]+1;
-		int n_qL = indices_of_filtered_boundaries[dim][i+1]+1;
+		// int n_qK = indices_of_filtered_boundaries[dim][i]+1;
+		// int n_qL = indices_of_filtered_boundaries[dim][i+1]+1;
 		matlab::data::ArrayFactory factory;
 		matlab::data::TypedArray<int32_t>  matlab_n_qK = factory.createScalar<int32_t>(n_qK);
 		matlab::data::TypedArray<int32_t>  matlab_n_qL = factory.createScalar<int32_t>(n_qL);
