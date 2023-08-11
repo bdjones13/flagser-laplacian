@@ -749,27 +749,89 @@ public:
 		std::cout << convertUTF16StringToUTF8String(output_) << std::endl;
 	}
 
-	std::vector<double> call_matlab_PL(int num_eigenvals){
+	std::vector<double> call_matlab_PL(int num_eigenvals, int dim){
 		matlab_display_cpp();
-		eigen_sparse_to_matlab_engine(u"B_a", B_a);
-		// m_matlab_engine->eval("B_a");
+		
+		set_matlab_variables(dim);
+
+		//Below is a matlab implementation of algorithm 3.1 From the paper "Persistent Laplacians: Properties, Algorithms and Implications" by Memoli, Wan, and Wang, 2022.
+
+		m_matlab_engine->eval("tol = 1e-8;");
+		m_matlab_engine->eval("L_down = B_a'*B_a;");
+
+		m_matlab_engine->eval("if isempty(B_qp1_L)");
+		m_matlab_engine->eval("		L = L_down;");
+		m_matlab_engine->eval("		evals = eigs(L, num_eigenvals, 'smallestabs');");
+		m_matlab_engine->eval("		evals(evals < tol) = 0;");
+		m_matlab_engine->eval("else");
+
+		m_matlab_engine->eval("		diff = n_qL-n_qK;");
+		m_matlab_engine->eval("		if n_qL == n_qK");
+		m_matlab_engine->eval("			L_up = B_qp1_L*B_qp1_L';");
+		m_matlab_engine->eval("		else");
+		m_matlab_engine->eval("			D = B_qp1_L(n_qK+1:n_qL,:);");
+		m_matlab_engine->eval("			[~, num_cols_D] = size(D);");
+		m_matlab_engine->eval("			D_temp = [D' eye(num_cols_D)];");
+		m_matlab_engine->eval("			reduction = rref(D_temp);");
+		m_matlab_engine->eval("			R_qp1_L = reduction(:,1:diff)';");
+		m_matlab_engine->eval("			Y = reduction(:,diff+1:end)';");
+		// m_matlab_engine->eval("			assert(isequal(D*Y,R_qp1_L))");
+		
+		m_matlab_engine->eval("			I = find(all(R_qp1_L==0,1));");
+		m_matlab_engine->eval("			Z = Y(:,I);");
+		m_matlab_engine->eval("			Z = orth(Z);");
+
+		m_matlab_engine->eval("			B_qp1_L_K_temp = B_qp1_L*Z;");
+		// m_matlab_engine->eval("			B_qp1_L_K_temp = B_qp1_L*Y;");
+		
+		m_matlab_engine->eval("			B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,:);");
+		// m_matlab_engine->eval("			B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,I);");
+		m_matlab_engine->eval("			L_up = B_qp1_L_K*B_qp1_L_K';");		
+		// m_matlab_engine->eval("			L_up = B_qp1_L_K*inv(Z'*Z)*B_qp1_L_K';");
+		m_matlab_engine->eval("		end");
+		m_matlab_engine->eval("		L = L_up + L_down;");
+		m_matlab_engine->eval("		evals = eigs(L,num_eigenvals, 'smallestabs');");
+		m_matlab_engine->eval("		evals(evals < tol) = 0;");
+		m_matlab_engine->eval("end");
+
 		std::vector<double> dummy;
 		return dummy;
 
-
-
-		// what we want is to store something in 
-		//		B_a (either zeros or the matrix)
-		//  	B_qp1_L (either zeros or the matrix)
-		// 		n_qL, n_qK
-		// call PL(B_qp1_L, n_qL, n_qK, B_a)
-		// and return the eigenvalues in a vector
-
-		// this code is very similar to https://github.com/wangru25/HERMES/blob/main/src/snapshot.cpp
-		// 
 	}
 
+	void set_matlab_variables(int num_eigenvals, int dim){
 
+		int n_qK = indices_of_filtered_boundaries[dim][i]+1;
+		int n_qL = indices_of_filtered_boundaries[dim][i+1]+1;
+		matlab::data::ArrayFactory factory;
+		matlab::data::TypedArray<int32_t>  matlab_n_qK = factory.createScalar<int32_t>(n_qK);
+		matlab::data::TypedArray<int32_t>  matlab_n_qL = factory.createScalar<int32_t>(n_qL);
+
+		if (num_eigenvals == 0){
+			num_eigenvals = n_qK;
+		}
+
+		matlab::data::TypedArray<int32_t>  matlab_num_eigenvals = factory.createScalar<int32_t>(num_eigenvals);
+
+		m_matlab_engine->setVariable(u"n_qK", std::move(matlab_n_qK));
+		m_matlab_engine->setVariable(u"n_qL", std::move(matlab_n_qL));
+		m_matlab_engine->setVariable(u"num_eigenvals", std::move(matlab_num_eigenvals));
+
+		if (dim != min_dimension){
+			eigen_sparse_to_matlab_engine(u"B_a", B_a);
+		}
+		else {
+			m_matlab_engine->eval(u"B_a=zeros(0,n_qK);");
+		}
+
+		if (dim != top_dimension){
+			eigen_sparse_to_matlab_engine(u"B_qp1_L", B_ab);
+		} 
+		else {
+			m_matlab_engine->eval(u"B_qp1_L=zeros(n_qL,0);");
+		}
+
+	}
 	void eigen_sparse_to_matlab_engine(std::u16string matlab_name, SparseMatrix A){
 		std::vector<double> row, col, val;
 
