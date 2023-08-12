@@ -436,57 +436,8 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 
 	// Clean up
 	for (auto p : coboundary_matrix) { p.clear(); }
-	if (dimension > max_dimension) return;// || _is_top_dimension) return;
+	if (dimension > max_dimension) return;
 
-
-// 	if (cache != "") {
-// #ifdef USE_COEFFICIENTS
-// 		// TODO: Make this work
-// 		std::string err_msg = "Sorry, caching does not work with coefficients yet.";
-// 		throw std::logic_error(err_msg);
-// #endif
-// 		bool loaded_from_file = false;
-// 		for (size_t i = 0; i < nb_threads; i++) {
-// 			coboundary_matrix[i].clear();
-// 			std::string fname = cache;
-// 			fname += "/matrix_";
-// 			fname += std::to_string(current_dimension);
-// 			fname += "_";
-// 			fname += std::to_string(i);
-// 			std::ifstream f(fname.c_str(), std::ios::binary);
-// 			if (i == 0 && !f.good()) break;
-// 			loaded_from_file = true;
-
-// 			f.read((char*)&(cell_count[current_dimension + 1]), sizeof(size_t));
-// 			f.read((char*)&(coboundary_matrix_offsets[i]), sizeof(size_t));
-
-// 			size_t this_size;
-// 			f.read((char*)&(this_size), sizeof(size_t));
-
-// 			index_t next_value;
-// 			while (this_size > 0 && f.read((char*)&next_value, sizeof(index_t))) {
-// 				if (next_value == -1)
-// 					coboundary_matrix[i].append_column();
-// 				else
-// 					coboundary_matrix[i].push_back(next_value);
-// 			}
-// 			f.close();
-// 		}
-
-// 		std::string fname = cache;
-// 		fname += "/filtration_";
-// 		fname += std::to_string(current_dimension);
-// 		std::ifstream f(fname.c_str(), std::ios::binary);
-// 		next_filtration.clear();
-// 		value_t next_value;
-// 		while (f.read((char*)&next_value, sizeof(value_t))) next_filtration.push_back(next_value);
-// 		f.close();
-
-// 		if (loaded_from_file) {
-// 			_is_top_dimension = cell_count[current_dimension + 1] == 0;
-// 			return;
-// 		}
-// 	}
 
 	{
 		if (filtration_algorithm != nullptr) {
@@ -537,8 +488,7 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 
 			}
 		}
-		// If we do not want the homology in the next degree, then we can stop
-		// here
+		// If we do not want the homology in the next degree, then we can stop here
 		if (dimension + 1 < min_dimension) return;
 		cell_hasher_t::set_current_cell_dimension(dimension + 1);
 		std::vector<cell_hash_map_t> _cache_next_cells(nb_threads);
@@ -578,18 +528,14 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 	
 		flag_complex.for_each_cell(store_coboundaries, dimension);
 
-		// std::cout << "end computing the coboundaries." << std::endl << std::flush;
-		// std::cout << "The coboundaries are:" << std::endl << std::flush;
+		
 		for (size_t i = 0; i < nb_threads; i++) {
 			//this isn't the right interpretation; each compressed_sparse_matrix<real_entry_t> is actually a full matrix
 			std::cout << "cell count in dimension " << dimension + 1 << " is " << _cell_count << std::endl << std::flush; //this is not correct for dimension
 			real_compressed_sparse_matrix<real_entry_t> col = coboundary_matrix[i];
-			// col.print();			
-			// col.print_uncompressed(int(cell_count[dimension+1])); // might be dimension +/- 1
 			coboundary_as_Eigen = col.to_Eigen(int(cell_count[dimension+1]),int(cell_count[dimension]),dimension);
 
 		}
-		// std::cout << "end printing coboundaries." << std::endl << std::flush;
 		
 		_cell_count = 0;
 		for (size_t i = 0; i < nb_threads; i++) {

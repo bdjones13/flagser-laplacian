@@ -54,9 +54,8 @@ void compute_homology(filtered_directed_graph_t& graph, const flagser_parameters
 
 
 		real_persistence_computer_t<decltype(complex)> persistence_computer(complex, 
-									output.get(), params.max_entries);//params.modulus);
+									output.get(), params.max_entries);
 		persistence_computer.compute_persistent_spectra(params.min_dimension, params.max_dimension);
-		// persistence_computer.compute_persistence(params.min_dimension, params.max_dimension);
 	}
 
 	if (params.split_into_connected_components) { output->print("\n## Total\n"); }
@@ -67,8 +66,6 @@ void compute_homology(filtered_directed_graph_t& graph, const flagser_parameters
 }
 
 int main(int argc, char** argv) {
-
-	
 
 	try {
 		auto arguments = parse_arguments(argc, argv);
@@ -83,12 +80,8 @@ int main(int argc, char** argv) {
 		if (positional_arguments.size() == 0) { print_usage_and_exit(-1); }
 		const char* input_filename = positional_arguments[0];
 
-		filtered_directed_graph_t graph = read_filtered_directed_graph(input_filename, params); //does not seem to depend on the coefficients
+		filtered_directed_graph_t graph = read_filtered_directed_graph(input_filename, params);
 
-		// if (params.in_memory)
-			// compute_homology<directed_flag_complex_in_memory_computer::directed_flag_complex_in_memory_computer_t>(graph, params); //todo: change coeff
-		// else
-		// Ben Jones 2023-03-16 don't worry about in_memory during development
-		compute_homology<real_directed_flag_complex_computer::real_directed_flag_complex_computer_t>(graph, params); //todo: change coeff - do this one first?
+		compute_homology<real_directed_flag_complex_computer::real_directed_flag_complex_computer_t>(graph, params); 
 	} catch (const std::exception& e) { std::cout << e.what() << std::endl; }
 }
