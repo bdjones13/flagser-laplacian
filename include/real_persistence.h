@@ -592,15 +592,15 @@ public:
 			double next_filtration = total_filtration[i+1];
 			
 			for(int dim = min_dim; dim <= top_dimension; dim++){
-				std::cout << "\n\% B_" << filtration << "[" << dim-1 << "] with cols in dim=" << dim << ", rows in dim-1=" << dim-1;
-				std::cout << "\nB_a=" << std::flush;
+				// std::cout << "\n\% B_" << filtration << "[" << dim-1 << "] with cols in dim=" << dim << ", rows in dim-1=" << dim-1;
+				// std::cout << "\nB_a=" << std::flush;
 				if (dim != min_dim){
 					boundary_at_filtration(dim,filtration,i);
 
-					print_Eigen_Sparse(B_a);
+					// print_Eigen_Sparse(B_a);
 				} 
 				else {
-					std::cout << "zeros(0," << indices_of_filtered_boundaries[dim][i]+1 << ");";
+					// std::cout << "zeros(0," << indices_of_filtered_boundaries[dim][i]+1 << ");";
 				}			
 
 				if (dim != top_dimension){	
@@ -608,15 +608,19 @@ public:
 				}
 				else{
 					
-					std::cout << "\nB_qp1_L=zeros(" << indices_of_filtered_boundaries[dim][i] << ",0);\n";
+					// std::cout << "\nB_qp1_L=zeros(" << indices_of_filtered_boundaries[dim][i] << ",0);\n";
 				}
-				call_matlab_PL(0,dim,i);
-				std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration;
-				std::cout << "\n evals=PL(B_qp1_L,n_qL,n_qK,B_a);\n" << std::flush;
-				std::cout << "betti" << dim << "=[betti" << dim << "; nnz(~evals)];\n"; //matlab code to build a list of betti numbers, like "betti1 = [betti1; 2];"
+				std::vector<double> current_eigenvals = call_matlab_PL(0,dim,i);
+				std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration << "\nevals=[";
+				for(int j = 0; j < (int) current_eigenvals.size(); j++){
+					std::cout << current_eigenvals[j] << " ";
+				}				
+				std::cout << "];\n" << std::endl;
+				// std::cout << "\n evals=PL(B_qp1_L,n_qL,n_qK,B_a);\n" << std::flush;
+				// std::cout << "betti" << dim << "=[betti" << dim << "; nnz(~evals)];\n"; //matlab code to build a list of betti numbers, like "betti1 = [betti1; 2];"
 			}
 		}
-		std::cout << "\n\% print matlab lists for spectra\n" << "betti0\n"<< "betti1\n"<< "betti2\n betti3\n";	
+		// std::cout << "\n\% print matlab lists for spectra\n" << "betti0\n"<< "betti1\n"<< "betti2\n betti3\n";	
 	}
 
 	void compute_persistence(unsigned short min_dimension = 0,
@@ -825,12 +829,12 @@ public:
 		// m_matlab_engine->eval(u"end");
 		matlab::data::TypedArray<double> matlab_evals = m_matlab_engine->getVariable(u"evals");
 		std::vector<double> evals;
-		std::cout <<"transfer eigenvalues" << std::endl;
+		// std::cout <<"transfer eigenvalues" << std::endl;
 		for(int i =0; i < (int) matlab_evals.getDimensions()[0]; ++i){
-			evals.push_back(matlab_evals[i][i]);
-			std::cout << matlab_evals[i][i] << " " << std::flush;
+			evals.push_back(matlab_evals[i]);
+			// std::cout << matlab_evals[i] << " " << std::flush;
 		}
-		std::cout <<"\n done transfer eigenvalues" << std::endl;
+		// std::cout <<"\n done transfer eigenvalues" << std::endl;
 
 		return evals;
 
@@ -1077,14 +1081,14 @@ public:
 		// So we go through all columns that are new in B_p^b and not in B_p^a
 		int b_row_index = indices_of_filtered_boundaries[dim][filtration_index+1];
 		int b_col_index = indices_of_filtered_boundaries[dim+1][filtration_index+1];
-		int a_row_index = indices_of_filtered_boundaries[dim][filtration_index];	
+		// int a_row_index = indices_of_filtered_boundaries[dim][filtration_index];	
 
 		B_ab = sorted_boundaries[dim].block(0,0,b_row_index+1, b_col_index+1); 
 		// the last two arguments of .block are the *size* of the matrix, which would occur at index + 1 (https://eigen.tuxfamily.org/dox/group__TutorialBlockOperations.html)
 
-		std::cout <<"\n n_qL=" << b_row_index+1 << ";\n n_qK=" << a_row_index+1 << ";\n" << std::flush;//the +1 is because of matlab indexing
-		std::cout << "\n B_qp1_L=" << std::flush;
-		print_Eigen_Sparse(B_ab);
+		// std::cout <<"\n n_qL=" << b_row_index+1 << ";\n n_qK=" << a_row_index+1 << ";\n" << std::flush;//the +1 is because of matlab indexing
+		// std::cout << "\n B_qp1_L=" << std::flush;
+		// print_Eigen_Sparse(B_ab);
 	
 	}
 protected:
