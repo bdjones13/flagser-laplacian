@@ -630,6 +630,7 @@ public:
 			}
 		}
 		print_all_spectra();
+		store_spectra();
 		// std::cout << "\n\% print matlab lists for spectra\n" << "betti0\n"<< "betti1\n"<< "betti2\n betti3\n";	
 	}
 
@@ -743,14 +744,7 @@ public:
 	void matlab_display_cpp(){
 		using namespace matlab::engine;
 		//https://www.mathworks.com/help/matlab/matlab_external/redirect-matlab-command-window-output-to-c.html
-		//matlab debugging to display
-		// Create MATLAB data array factory
-		matlab::data::ArrayFactory factory;
 
-
-		//create variables
-		m_matlab_engine->eval(u"[X,Y] = meshgrid(-2:.2:2);");
-    	m_matlab_engine->eval(u"Z = X.*exp(-X.^2 - Y.^2);");
 		// Create string buffer for standard output
 		typedef std::basic_stringbuf<char16_t> StringBuf;
 		std::shared_ptr<StringBuf> output = std::make_shared<StringBuf>();
@@ -764,7 +758,7 @@ public:
 	}
 
 	std::vector<double> call_matlab_PL(int num_eigenvals, int dim, int i){
-		matlab_display_cpp();
+		// matlab_display_cpp();
 		int n_qK = indices_of_filtered_boundaries[dim][i]+1;
 		int n_qL = indices_of_filtered_boundaries[dim][i+1]+1;
 		set_matlab_variables(num_eigenvals, dim, i,n_qK,n_qL);
@@ -803,48 +797,12 @@ public:
 		}
 		m_matlab_engine->eval(u"evals = eigs(L,num_eigenvals, 'smallestabs');");
 		m_matlab_engine->eval(u"evals(evals < tol) = 0;");
-		// m_matlab_engine->eval(u"if isempty(B_qp1_L)");
-		// m_matlab_engine->eval(u"		L = L_down;");
-		// m_matlab_engine->eval(u"		evals = eigs(L, num_eigenvals, 'smallestabs');");
-		// m_matlab_engine->eval(u"		evals(evals < tol) = 0;");
-		// m_matlab_engine->eval(u"else");
 
-		// m_matlab_engine->eval(u"		diff = n_qL-n_qK;");
-		// m_matlab_engine->eval(u"		if n_qL == n_qK");
-		// m_matlab_engine->eval(u"			L_up = B_qp1_L*B_qp1_L';");
-		// m_matlab_engine->eval(u"		else");
-		// m_matlab_engine->eval(u"			D = B_qp1_L(n_qK+1:n_qL,:);");
-		// m_matlab_engine->eval(u"			[~, num_cols_D] = size(D);");
-		// m_matlab_engine->eval(u"			D_temp = [D' eye(num_cols_D)];");
-		// m_matlab_engine->eval(u"			reduction = rref(D_temp);");
-		// m_matlab_engine->eval(u"			R_qp1_L = reduction(:,1:diff)';");
-		// m_matlab_engine->eval(u"			Y = reduction(:,diff+1:end)';");
-		// // m_matlab_engine->eval(u"			assert(isequal(D*Y,R_qp1_L))");
-		
-		// m_matlab_engine->eval(u"			I = find(all(R_qp1_L==0,1));");
-		// m_matlab_engine->eval(u"			Z = Y(:,I);");
-		// m_matlab_engine->eval(u"			Z = orth(Z);");
-
-		// m_matlab_engine->eval(u"			B_qp1_L_K_temp = B_qp1_L*Z;");
-		// // m_matlab_engine->eval(u"			B_qp1_L_K_temp = B_qp1_L*Y;");
-		
-		// m_matlab_engine->eval(u"			B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,:);");
-		// // m_matlab_engine->eval(u"			B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,I);");
-		// m_matlab_engine->eval(u"			L_up = B_qp1_L_K*B_qp1_L_K';");		
-		// // m_matlab_engine->eval(u"			L_up = B_qp1_L_K*inv(Z'*Z)*B_qp1_L_K';");
-		// m_matlab_engine->eval(u"		end");
-		// m_matlab_engine->eval(u"		L = L_up + L_down;");
-		// m_matlab_engine->eval(u"		evals = eigs(L,num_eigenvals, 'smallestabs');");
-		// m_matlab_engine->eval(u"		evals(evals < tol) = 0;");
-		// m_matlab_engine->eval(u"end");
 		matlab::data::TypedArray<double> matlab_evals = m_matlab_engine->getVariable(u"evals");
 		std::vector<double> evals;
-		// std::cout <<"transfer eigenvalues" << std::endl;
 		for(int i =0; i < (int) matlab_evals.getDimensions()[0]; ++i){
 			evals.push_back(matlab_evals[i]);
-			// std::cout << matlab_evals[i] << " " << std::flush;
 		}
-		// std::cout <<"\n done transfer eigenvalues" << std::endl;
 
 		return evals;
 
@@ -852,8 +810,6 @@ public:
 
 	void set_matlab_variables(int num_eigenvals, int dim, int i, int n_qK, int n_qL){
 
-		// int n_qK = indices_of_filtered_boundaries[dim][i]+1;
-		// int n_qL = indices_of_filtered_boundaries[dim][i+1]+1;
 		matlab::data::ArrayFactory factory;
 		matlab::data::TypedArray<int32_t>  matlab_n_qK = factory.createScalar<int32_t>(n_qK);
 		matlab::data::TypedArray<int32_t>  matlab_n_qL = factory.createScalar<int32_t>(n_qL);
@@ -917,7 +873,6 @@ public:
 		//takes in a: const matlab::engine::String &statement 
 		std::u16string command = matlab_name + u"=sparse(row, col, val, rowsize, colsize);";
 		m_matlab_engine->eval(command);
-		// m_matlab_engine->eval(u"A=sparse(row, col, val, size, size);");//TODO name from A to matlab_name
 
 	}
 #else
@@ -927,7 +882,7 @@ public:
 	}
 #endif
 	void setup_eigenval_storage(){
-		for (int i = 0; i < top_dimension; i++){
+		for (int i = 0; i <= top_dimension; i++){
 			spectra.push_back(std::vector<std::vector<double>>());
 		}
 	}
@@ -949,6 +904,23 @@ public:
 		}
 		std::cout << "\nEnd printing all spectra.\n" << std::flush;
  	}
+	void store_spectra(){
+		std::cout << "\nBegin writing all spectra to files..." << std::flush;
+		for (int i = 0; i < (int) spectra.size(); i++){
+			std::cout <<"\nWriting spectra of dimension " << i << "to file spectra_" << i << ".txt";
+			std::ofstream outstream("spectra_" + std::to_string(i) + ".txt");
+			
+			std::vector<std::vector<double>> current_dim = spectra[i];
+			for (int j = 0; j < (int) current_dim.size(); j++){
+				std::vector<double> current_filtration = current_dim[j];
+				for (int k = 0; k < (int) current_filtration.size(); k++){
+					outstream << current_filtration[k] << " ";
+				}
+				outstream << std::endl;
+			}
+			outstream.close();
+		}
+	}
 	std::vector<double> compute_spectra(int dim, int num_eigenvals){
 
 		//most of this code is identical to https://github.com/wangru25/HERMES/blob/main/src/snapshot.cpp
