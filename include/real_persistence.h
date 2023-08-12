@@ -550,9 +550,13 @@ private:
 	std::vector<SparseMatrix> sorted_coboundaries;
 	std::vector<SparseMatrix> sorted_boundaries;
 	std::vector<SparseMatrix> Laplacians;
+	std::vector<std::vector<std::vector<double>>> spectra;
 
 	SparseMatrix B_a;
 	SparseMatrix B_ab;
+
+
+	
 #ifdef USE_MATLAB
 	std::unique_ptr<matlab::engine::MATLABEngine> m_matlab_engine;
 #endif
@@ -584,7 +588,7 @@ public:
 		
 		make_boundaries();
 		set_total_filtration();
-
+		setup_eigenval_storage();
 		std::cout << "\n%matlab list for spectra\n" << "betti0=[];\n"<< "betti1=[];\n"<< "betti2=[]; betti3=[]\n";  
 		for (int i = 0; i < (int) total_filtration.size()-1; i++){
 		
@@ -616,10 +620,16 @@ public:
 					std::cout << current_eigenvals[j] << " ";
 				}				
 				std::cout << "];\n" << std::endl;
+				std::cout << "\n push_back to spectra[" << dim << "]" << std::flush;
+				print_all_spectra();
+				spectra[dim].push_back(current_eigenvals);
+				std::cout << "\n push_back finished" << std::endl; 
+				print_all_spectra();
 				// std::cout << "\n evals=PL(B_qp1_L,n_qL,n_qK,B_a);\n" << std::flush;
 				// std::cout << "betti" << dim << "=[betti" << dim << "; nnz(~evals)];\n"; //matlab code to build a list of betti numbers, like "betti1 = [betti1; 2];"
 			}
 		}
+		print_all_spectra();
 		// std::cout << "\n\% print matlab lists for spectra\n" << "betti0\n"<< "betti1\n"<< "betti2\n betti3\n";	
 	}
 
@@ -916,7 +926,29 @@ public:
 		return dummy;
 	}
 #endif
-
+	void setup_eigenval_storage(){
+		for (int i = 0; i < top_dimension; i++){
+			spectra.push_back(std::vector<std::vector<double>>());
+		}
+	}
+	void print_all_spectra(){
+		std::cout << "\nBegin printing all spectra:\n" << std::flush;
+		for (int i = 0; i < (int) spectra.size(); i++){
+			std::cout << "\nspectra_dim" << i;
+			std::vector<std::vector<double>> current_dim = spectra[i];
+			for (int j = 0; j < (int) current_dim.size(); j++){
+				std::cout << "\nspectra_dim" << i;
+				std::cout << "_filtrationindex" << j << "=[";
+				std::vector<double> current_filtration = current_dim[j];
+				for (int k = 0; k < (int) current_filtration.size(); k++){
+					std::cout << current_filtration[k] << ", ";
+				}
+				std::cout << "]" << std::endl;
+				 
+			}
+		}
+		std::cout << "\nEnd printing all spectra.\n" << std::flush;
+ 	}
 	std::vector<double> compute_spectra(int dim, int num_eigenvals){
 
 		//most of this code is identical to https://github.com/wangru25/HERMES/blob/main/src/snapshot.cpp
