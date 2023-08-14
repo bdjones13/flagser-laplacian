@@ -614,7 +614,7 @@ public:
 		if (dim != min_dimension){
 			//Laplacian is L_down + L_up, set L=L_down now, add L_up later
 			B_a = boundary_at_filtration(dim, filtration_index);
-			SparseMatrix L_down = B_a*B_a.transpose();
+			SparseMatrix L_down = B_a.transpose()*B_a;
 			eigen_sparse_to_matlab_engine(u"L", L_down);
 		}
 		else{
@@ -627,30 +627,34 @@ public:
 	void up_laplacian(int dim, int filtration_index){
 		int n_qK = indices_of_filtered_boundaries[dim][filtration_index]+1;
 		int n_qL = indices_of_filtered_boundaries[dim][filtration_index+1]+1;
-		if (dim!= top_dimension){
-			B_b = boundary_at_filtration(dim+1,filtration_index+1);
-			eigen_sparse_to_matlab_engine(u"B_qp1_L",B_b);
-			if (n_qK == n_qL){
-				m_matlab_engine->eval(u"L_up = B_qp1_L*B_qp1_L';");
-			} else{
+		if (dim!= top_dimension && n_qL != 0){
+			int n_qp1_L = indices_of_filtered_boundaries[dim+1][filtration_index+1]+1;//accessing this element without knowing dim != top_dimension can lead to seg fault
+			if (n_qp1_L != 0){
+				B_b = boundary_at_filtration(dim+1,filtration_index+1);
 
-				m_matlab_engine->eval(u"D = B_qp1_L(n_qK+1:n_qL,:);");
-				m_matlab_engine->eval(u"[~, num_cols_D] = size(D);");
-				m_matlab_engine->eval(u"D_temp = [D' eye(num_cols_D)];");
-				m_matlab_engine->eval(u"reduction = rref(D_temp);");
-				m_matlab_engine->eval(u"R_qp1_L = reduction(:,1:n_qL-n_qK)';");
-				m_matlab_engine->eval(u"Y = reduction(:,n_qL-n_qK+1:end)';");
-				m_matlab_engine->eval(u"I = find(all(R_qp1_L==0,1));");
-				m_matlab_engine->eval(u"Z = Y(:,I);");
-				m_matlab_engine->eval(u"Z = orth(Z);");
+				eigen_sparse_to_matlab_engine(u"B_qp1_L",B_b);
+				if (n_qK == n_qL){
+					m_matlab_engine->eval(u"L_up = B_qp1_L*B_qp1_L';");
+				} else{
 
-				m_matlab_engine->eval(u"B_qp1_L_K_temp = B_qp1_L*Z;");
-				
-				m_matlab_engine->eval(u"B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,:);");
-				m_matlab_engine->eval(u"L_up = B_qp1_L_K*B_qp1_L_K';");		
-			}
-			m_matlab_engine->eval(u"L = L + L_up;");
-		}
+					m_matlab_engine->eval(u"D = B_qp1_L(n_qK+1:n_qL,:);");
+					m_matlab_engine->eval(u"[~, num_cols_D] = size(D);");
+					m_matlab_engine->eval(u"D_temp = [D' eye(num_cols_D)];");
+					m_matlab_engine->eval(u"reduction = rref(D_temp);");
+					m_matlab_engine->eval(u"R_qp1_L = reduction(:,1:n_qL-n_qK)';");
+					m_matlab_engine->eval(u"Y = reduction(:,n_qL-n_qK+1:end)';");
+					m_matlab_engine->eval(u"I = find(all(R_qp1_L==0,1));");
+					m_matlab_engine->eval(u"Z = Y(:,I);");
+					m_matlab_engine->eval(u"Z = orth(Z);");
+
+					m_matlab_engine->eval(u"B_qp1_L_K_temp = B_qp1_L*Z;");
+					
+					m_matlab_engine->eval(u"B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,:);");
+					m_matlab_engine->eval(u"L_up = B_qp1_L_K*B_qp1_L_K';");		
+				}
+				m_matlab_engine->eval(u"L = L + L_up;");
+			}// end if n_qp1_L != 0
+		}// end if dim!= top_dimension && n_qL != 0
 		else{
 			//Do nothing. No up-Laplacian, use L=L_down, which is already stored. 
 		}
