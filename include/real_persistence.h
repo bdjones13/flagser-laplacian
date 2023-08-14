@@ -555,7 +555,6 @@ public:
 									unsigned short max_dim = std::numeric_limits<unsigned short>::max()){
 		min_dimension = min_dim;
 		max_dimension = max_dim;
-		auto start = std::chrono::high_resolution_clock::now();
 		compute_coboundaries(min_dimension, max_dimension);
 		sort_coboundaries();
 		
@@ -563,9 +562,6 @@ public:
 		set_total_filtration(); // TODO write total_filtration to output
 		setup_eigenval_storage();
 
-		auto end_setup = std::chrono::high_resolution_clock::now();
-		auto duration_setup = std::chrono::duration_cast<std::chrono::milliseconds>(end_setup - start);
-		std::cout << "\nsetup time(ms)=" << duration_setup.count() << "\n";
 		for (int i = 0; i < (int) total_filtration.size()-1; i++){
 		
 			double filtration = total_filtration[i];
@@ -577,28 +573,24 @@ public:
 				int n_qL = indices_of_filtered_boundaries[dim][i+1]+1;
 				set_matlab_variables(0, dim, i,n_qK,n_qL);
 				
-				auto start_down = std::chrono::high_resolution_clock::now();
 				down_Laplacian(dim,i);
 
-				auto end_down = std::chrono::high_resolution_clock::now();
 				auto start_up = std::chrono::high_resolution_clock::now();
 				up_laplacian(dim,i);
 				auto end_up = std::chrono::high_resolution_clock::now();
-				auto start_eigs = std::chrono::high_resolution_clock::now();
+				
 				std::vector<real_coefficient_t> current_eigenvals = matlab_eigs(0,dim,i);
-				auto end_eigs = std::chrono::high_resolution_clock::now();
+				
 
 				auto end_dim_filt = std::chrono::high_resolution_clock::now();
 
 				auto duration_dim_filt = std::chrono::duration_cast<std::chrono::milliseconds>(end_dim_filt - start_dim_filt);
-				auto duration_eigs = std::chrono::duration_cast<std::chrono::milliseconds>(end_eigs - start_eigs);
 				auto duration_up = std::chrono::duration_cast<std::chrono::milliseconds>(end_up - start_up);
-				auto duration_down = std::chrono::duration_cast<std::chrono::milliseconds>(end_down - start_down);
  
 				
 				std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration;
-				std::cout << ",times in ms: duration_dim_filt=" << duration_dim_filt.count() << ", duration_down=" << duration_down.count() << ", duration_up=" << duration_up.count();
-				std::cout << ", duration_eigs=" << duration_eigs.count();
+				std::cout << ",times in ms: duration_dim_filt=" << duration_dim_filt.count() << ", duration_up=" << duration_up.count();
+				
 				spectra[dim].push_back(current_eigenvals);
 			}
 		}
@@ -702,80 +694,46 @@ public:
 		}
 	}
 	void up_laplacian(int dim, int filtration_index){	
-		auto start_up = std::chrono::high_resolution_clock::now();
-					int n_qK = indices_of_filtered_boundaries[dim][filtration_index]+1;
+		int n_qK = indices_of_filtered_boundaries[dim][filtration_index]+1;
 		int n_qL = indices_of_filtered_boundaries[dim][filtration_index+1]+1;
-		std::cout <<"\nup_laplacian timing{";
 		if (dim!= top_dimension && n_qL != 0){
 			int n_qp1_L = indices_of_filtered_boundaries[dim+1][filtration_index+1]+1;//accessing this element without knowing dim != top_dimension can lead to seg fault
 			if (n_qp1_L != 0){
-				auto start_B_p = std::chrono::high_resolution_clock::now();
 
 				B_b = boundary_at_filtration(dim+1,filtration_index+1);
-				auto end_B_p = std::chrono::high_resolution_clock::now();
-				auto duration_B_p = std::chrono::duration_cast<std::chrono::milliseconds>(end_B_p - start_B_p);
-				auto start_to_Matlab = std::chrono::high_resolution_clock::now();
 
 				eigen_sparse_to_matlab_engine(u"B_qp1_L",B_b);
-				auto end_to_Matlab = std::chrono::high_resolution_clock::now();
-				auto duration_to_Matlab = std::chrono::duration_cast<std::chrono::milliseconds>(end_to_Matlab - start_to_Matlab);
-				auto start_L_up = std::chrono::high_resolution_clock::now();
-
-				std::cout <<"B_p=" << duration_B_p.count() << ",to_Matlab=" << duration_to_Matlab.count();
 				if (n_qK == n_qL){
-					auto start_L_up_basic = std::chrono::high_resolution_clock::now();
 					m_matlab_engine->eval(u"L_up = B_qp1_L*B_qp1_L';");
-					auto end_L_up_basic = std::chrono::high_resolution_clock::now();
-
-					auto duration_L_up_basic = std::chrono::duration_cast<std::chrono::milliseconds>(end_L_up_basic- start_L_up_basic);
-					std::cout <<",L_up_basic=" << duration_L_up_basic.count();
 				} else{
-					auto start_matlab_setup = std::chrono::high_resolution_clock::now();
 					m_matlab_engine->eval(u"D = B_qp1_L(n_qK+1:n_qL,:);");
 					m_matlab_engine->eval(u"[~, num_cols_D] = size(D);");
 					m_matlab_engine->eval(u"D_temp = [D' eye(num_cols_D)];");
-					auto end_matlab_setup = std::chrono::high_resolution_clock::now();
-					auto duration_matlab_setup = std::chrono::duration_cast<std::chrono::milliseconds>(end_matlab_setup - start_matlab_setup);
+
+					//rref step is extremely time consuming
 					auto start_rref = std::chrono::high_resolution_clock::now();
-					m_matlab_engine->eval(u"reduction = rref(D_temp);");
+					m_matlab_engine->eval(u"reduction = rref(D_temp);"); // basically all of the computational time is in this rref
 					auto end_rref = std::chrono::high_resolution_clock::now();
 					auto duration_rref = std::chrono::duration_cast<std::chrono::milliseconds>(end_rref - start_rref);
-					auto start_get_Z = std::chrono::high_resolution_clock::now();
+					std::cout << "[rref_time=" << duration_rref.count() << "]";
+
+
 					m_matlab_engine->eval(u"R_qp1_L = reduction(:,1:n_qL-n_qK)';");
 					m_matlab_engine->eval(u"Y = reduction(:,n_qL-n_qK+1:end)';");
 					m_matlab_engine->eval(u"I = find(all(R_qp1_L==0,1));");
 					m_matlab_engine->eval(u"Z = Y(:,I);");
-					auto end_get_Z = std::chrono::high_resolution_clock::now();
-					auto duration_get_Z = std::chrono::duration_cast<std::chrono::milliseconds>(end_get_Z - start_get_Z);
-					auto start_ortho_Z = std::chrono::high_resolution_clock::now();
 					m_matlab_engine->eval(u"Z = orth(Z);");
-					auto end_ortho_Z = std::chrono::high_resolution_clock::now();
-					auto duration_ortho_Z = std::chrono::duration_cast<std::chrono::milliseconds>(end_ortho_Z - start_ortho_Z);
-					auto start_transform_B = std::chrono::high_resolution_clock::now();
-					m_matlab_engine->eval(u"B_qp1_L_K_temp = B_qp1_L*Z;");
 					
+					m_matlab_engine->eval(u"B_qp1_L_K_temp = B_qp1_L*Z;");
 					m_matlab_engine->eval(u"B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,:);");
-					auto end_transform_B = std::chrono::high_resolution_clock::now();
-					auto duration_transform_B = std::chrono::duration_cast<std::chrono::milliseconds>(end_transform_B - start_transform_B);
 					m_matlab_engine->eval(u"L_up = B_qp1_L_K*B_qp1_L_K';");	
-
-
-					std::cout << ",matlab_setup=" << duration_matlab_setup.count() << ",rref=" << duration_rref.count() << ",get_Z=" << duration_get_Z.count() << ",orth_z=" << duration_ortho_Z.count();
-					std::cout << ",transform_B=" << duration_transform_B.count();
-
-				}
-				auto end_L_up = std::chrono::high_resolution_clock::now();
-				auto duration_L_up = std::chrono::duration_cast<std::chrono::milliseconds>(end_L_up - start_L_up);
-				std::cout <<",L_up=" << duration_L_up.count();
+				}				
 				m_matlab_engine->eval(u"L = L + L_up;");
 			}// end if n_qp1_L != 0
 		}// end if dim!= top_dimension && n_qL != 0
 		else{
 			//Do nothing. No up-Laplacian, use L=L_down, which is already stored. 
 		}
-		auto end_up = std::chrono::high_resolution_clock::now();
-		auto duration_up = std::chrono::duration_cast<std::chrono::milliseconds>(end_up - start_up);
-		std::cout << ",up=" << duration_up.count() << std::endl;
 	}
 
 	void set_matlab_variables(int num_eigenvals, int dim, int i, int n_qK, int n_qL){
