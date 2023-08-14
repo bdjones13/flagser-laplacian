@@ -19,6 +19,9 @@
 #include "MatlabEngine.hpp"
 #include "MatlabDataArray.hpp"
 
+
+#include <chrono>
+
 #ifdef USE_ARRAY_HASHMAP
 typedef std::deque<index_t> pivot_column_index_t;
 // const index_t INVALID_INDEX = std::numeric_limits<index_t>::max();
@@ -258,7 +261,7 @@ public:
 		int this_size = size();
 		std::cout << "printing compressed_sparse_matrix as an uncompressed matrix in MATLAB format" << std::endl;
 		int cols = bounds.size();
-		std::vector< std::vector<double> > uncompressed_matrix(rows,std::vector<double>(cols,0.0));
+		std::vector< std::vector<real_coefficient_t> > uncompressed_matrix(rows,std::vector<real_coefficient_t>(cols,0.0));
 		
 		
 		for(auto j = 0; j < this_size; j++){
@@ -523,7 +526,7 @@ private:
 	std::vector<SparseMatrix> sorted_coboundaries;
 	std::vector<SparseMatrix> sorted_boundaries;
 	std::vector<SparseMatrix> Laplacians;
-	std::vector<std::vector<std::vector<double>>> spectra;
+	std::vector<std::vector<std::vector<real_coefficient_t>>> spectra;
 
 	SparseMatrix B_a;
 	SparseMatrix B_b;
@@ -532,6 +535,7 @@ private:
 
 #ifdef USE_MATLAB
 	std::unique_ptr<matlab::engine::MATLABEngine> m_matlab_engine;
+	matlab::data::ArrayFactory factory;
 #endif
 
 public:
@@ -551,28 +555,50 @@ public:
 									unsigned short max_dim = std::numeric_limits<unsigned short>::max()){
 		min_dimension = min_dim;
 		max_dimension = max_dim;
-
+		auto start = std::chrono::high_resolution_clock::now();
 		compute_coboundaries(min_dimension, max_dimension);
 		sort_coboundaries();
 		
 		make_boundaries();
 		set_total_filtration(); // TODO write total_filtration to output
 		setup_eigenval_storage();
+
+		auto end_setup = std::chrono::high_resolution_clock::now();
+		auto duration_setup = std::chrono::duration_cast<std::chrono::milliseconds>(end_setup - start);
+		std::cout << "\nsetup time(ms)=" << duration_setup.count() << "\n";
 		for (int i = 0; i < (int) total_filtration.size()-1; i++){
 		
 			double filtration = total_filtration[i];
 			double next_filtration = total_filtration[i+1];
 			
 			for(int dim = min_dim; dim <= top_dimension; dim++){
+				auto start_dim_filt = std::chrono::high_resolution_clock::now();
 				int n_qK = indices_of_filtered_boundaries[dim][i]+1;
 				int n_qL = indices_of_filtered_boundaries[dim][i+1]+1;
 				set_matlab_variables(0, dim, i,n_qK,n_qL);
 				
+				auto start_down = std::chrono::high_resolution_clock::now();
 				down_Laplacian(dim,i);
+
+				auto end_down = std::chrono::high_resolution_clock::now();
+				auto start_up = std::chrono::high_resolution_clock::now();
 				up_laplacian(dim,i);
-				std::vector<double> current_eigenvals = matlab_eigs(0,dim,i);
+				auto end_up = std::chrono::high_resolution_clock::now();
+				auto start_eigs = std::chrono::high_resolution_clock::now();
+				std::vector<real_coefficient_t> current_eigenvals = matlab_eigs(0,dim,i);
+				auto end_eigs = std::chrono::high_resolution_clock::now();
+
+				auto end_dim_filt = std::chrono::high_resolution_clock::now();
+
+				auto duration_dim_filt = std::chrono::duration_cast<std::chrono::milliseconds>(end_dim_filt - start_dim_filt);
+				auto duration_eigs = std::chrono::duration_cast<std::chrono::milliseconds>(end_eigs - start_eigs);
+				auto duration_up = std::chrono::duration_cast<std::chrono::milliseconds>(end_up - start_up);
+				auto duration_down = std::chrono::duration_cast<std::chrono::milliseconds>(end_down - start_down);
+ 
 				
 				std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration;
+				std::cout << ",times in ms: duration_dim_filt=" << duration_dim_filt.count() << ", duration_down=" << duration_down.count() << ", duration_up=" << duration_up.count();
+				std::cout << ", duration_eigs=" << duration_eigs.count();
 				spectra[dim].push_back(current_eigenvals);
 			}
 		}
@@ -647,15 +673,15 @@ public:
 		std::cout << convertUTF16StringToUTF8String(output_) << std::endl;
 	}
 
-	std::vector<double> matlab_eigs(int num_eigenvals, int dim, int i){
+	std::vector<real_coefficient_t> matlab_eigs(int num_eigenvals, int dim, int i){
 
 		m_matlab_engine->eval(u"tol = 1e-8;");
 
 		m_matlab_engine->eval(u"evals = eigs(L,num_eigenvals, 'smallestabs');");
 		m_matlab_engine->eval(u"evals(evals < tol) = 0;");
 
-		matlab::data::TypedArray<double> matlab_evals = m_matlab_engine->getVariable(u"evals");
-		std::vector<double> evals;
+		matlab::data::TypedArray<real_coefficient_t> matlab_evals = m_matlab_engine->getVariable(u"evals");
+		std::vector<real_coefficient_t> evals;
 		for(int i =0; i < (int) matlab_evals.getDimensions()[0]; ++i){
 			evals.push_back(matlab_evals[i]);
 		}
@@ -712,7 +738,7 @@ public:
 	}
 
 	void set_matlab_variables(int num_eigenvals, int dim, int i, int n_qK, int n_qL){
-		matlab::data::ArrayFactory factory;
+		// matlab::data::ArrayFactory factory;
 		matlab::data::TypedArray<int32_t>  matlab_n_qK = factory.createScalar<int32_t>(n_qK);
 		matlab::data::TypedArray<int32_t>  matlab_n_qL = factory.createScalar<int32_t>(n_qL);
 		if (num_eigenvals == 0){
@@ -725,30 +751,30 @@ public:
 
 	}
 	void eigen_sparse_to_matlab_engine(std::u16string matlab_name, SparseMatrix A){
-		std::vector<double> row, col, val;
+		std::vector<real_coefficient_t> row, col, val;
 		//TODO: reserve array sizes
 		//TODO: pass by reference
 		for(int i=0; i < A.outerSize(); ++i){
 			for(SparseMatrix::InnerIterator iter(A,i); iter; ++iter){
-				row.push_back(static_cast<double>(iter.row()+1));
-				col.push_back(static_cast<double>(iter.col()+1));
-				val.push_back(static_cast<double>(iter.value()));
+				row.push_back(static_cast<real_coefficient_t>(iter.row()+1));
+				col.push_back(static_cast<real_coefficient_t>(iter.col()+1));
+				val.push_back(static_cast<real_coefficient_t>(iter.value()));
 			}
 		}
 
 		int row_matrix_size = A.rows();
 		int col_matrix_size = A.cols();
-		std::vector<double> rowvms = {static_cast<double>(row_matrix_size)};
-		std::vector<double> colvms = {static_cast<double>(col_matrix_size)};
+		std::vector<real_coefficient_t> rowvms = {static_cast<real_coefficient_t>(row_matrix_size)};
+		std::vector<real_coefficient_t> colvms = {static_cast<real_coefficient_t>(col_matrix_size)};
 
 		using namespace matlab;
-		data::ArrayFactory factory;
+		// data::ArrayFactory factory;
 		
-		data::TypedArray<double> rowmms = factory.createArray<std::vector<double>::iterator>({ 1, 1 }, rowvms.begin(), rowvms.end());
-		data::TypedArray<double> colmms = factory.createArray<std::vector<double>::iterator>({ 1, 1 }, colvms.begin(), colvms.end());
-		data::TypedArray<double> mrow = factory.createArray<std::vector<double>::iterator>({ row.size(), 1 }, row.begin(), row.end());
-		data::TypedArray<double> mcol = factory.createArray<std::vector<double>::iterator>({ col.size(), 1 }, col.begin(), col.end());
-		data::TypedArray<double> mval = factory.createArray<std::vector<double>::iterator>({ val.size(), 1 }, val.begin(), val.end());
+		data::TypedArray<real_coefficient_t> rowmms = factory.createArray<std::vector<real_coefficient_t>::iterator>({ 1, 1 }, rowvms.begin(), rowvms.end());
+		data::TypedArray<real_coefficient_t> colmms = factory.createArray<std::vector<real_coefficient_t>::iterator>({ 1, 1 }, colvms.begin(), colvms.end());
+		data::TypedArray<real_coefficient_t> mrow = factory.createArray<std::vector<real_coefficient_t>::iterator>({ row.size(), 1 }, row.begin(), row.end());
+		data::TypedArray<real_coefficient_t> mcol = factory.createArray<std::vector<real_coefficient_t>::iterator>({ col.size(), 1 }, col.begin(), col.end());
+		data::TypedArray<real_coefficient_t> mval = factory.createArray<std::vector<real_coefficient_t>::iterator>({ val.size(), 1 }, val.begin(), val.end());
 
 		m_matlab_engine->setVariable(u"rowsize", std::move(rowmms));
 		m_matlab_engine->setVariable(u"colsize", std::move(colmms));
@@ -769,18 +795,18 @@ public:
 #endif
 	void setup_eigenval_storage(){
 		for (int i = 0; i <= top_dimension; i++){
-			spectra.push_back(std::vector<std::vector<double>>());
+			spectra.push_back(std::vector<std::vector<real_coefficient_t>>());
 		}
 	}
 	void print_all_spectra(){
 		std::cout << "\nBegin printing all spectra:\n" << std::flush;
 		for (int i = 0; i < (int) spectra.size(); i++){
 			std::cout << "\nspectra_dim" << i;
-			std::vector<std::vector<double>> current_dim = spectra[i];
+			std::vector<std::vector<real_coefficient_t>> current_dim = spectra[i];
 			for (int j = 0; j < (int) current_dim.size(); j++){
 				std::cout << "\nspectra_dim" << i;
 				std::cout << "_filtrationindex" << j << "=[";
-				std::vector<double> current_filtration = current_dim[j];
+				std::vector<real_coefficient_t> current_filtration = current_dim[j];
 				for (int k = 0; k < (int) current_filtration.size(); k++){
 					std::cout << current_filtration[k] << ", ";
 				}
@@ -796,9 +822,9 @@ public:
 			std::cout <<"Writing spectra of dimension " << i << "to file spectra_" << i << ".txt\n";
 			std::ofstream outstream("spectra_" + std::to_string(i) + ".txt");
 			
-			std::vector<std::vector<double>> current_dim = spectra[i];
+			std::vector<std::vector<real_coefficient_t>> current_dim = spectra[i];
 			for (int j = 0; j < (int) current_dim.size(); j++){
-				std::vector<double> current_filtration = current_dim[j];
+				std::vector<real_coefficient_t> current_filtration = current_dim[j];
 				for (int k = 0; k < (int) current_filtration.size(); k++){
 					outstream << current_filtration[k] << " ";
 				}
@@ -981,7 +1007,7 @@ protected:
 		indices_of_filtered_boundaries = temp_indices_of_filtered_boundaries;
 	}
 	void set_total_filtration(){
-		std::set<double> total_filtration_set;
+		std::set<real_coefficient_t> total_filtration_set;
 		for (int i = 0; i < (int) all_filtration_pairs.size(); i++){
 			std::vector<real_filtration_index_t> current = all_filtration_pairs[i];
 			for (int j = 0; j < (int) current.size(); j++){
@@ -1000,7 +1026,7 @@ protected:
 		// This is not the most efficient way to achieve this.
 		// total_filtration is already in sorted order, so we only need to append a value greater than the last 
 		int count_filtrations = total_filtration.size();
-		double last_filtration = total_filtration[count_filtrations-1];
+		real_coefficient_t last_filtration = total_filtration[count_filtrations-1];
 		total_filtration.push_back(last_filtration+1.0);
 		
 
