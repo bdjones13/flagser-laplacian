@@ -526,7 +526,9 @@ private:
 	std::vector<std::vector<std::vector<double>>> spectra;
 
 	SparseMatrix B_a;
-	SparseMatrix B_ab;
+	SparseMatrix B_b;
+
+	SparseMatrix L_down;
 
 #ifdef USE_MATLAB
 	std::unique_ptr<matlab::engine::MATLABEngine> m_matlab_engine;
@@ -554,7 +556,7 @@ public:
 		sort_coboundaries();
 		
 		make_boundaries();
-		set_total_filtration();
+		set_total_filtration(); // TODO write total_filtration to output
 		setup_eigenval_storage();
 		for (int i = 0; i < (int) total_filtration.size()-1; i++){
 		
@@ -562,19 +564,96 @@ public:
 			double next_filtration = total_filtration[i+1];
 			
 			for(int dim = min_dim; dim <= top_dimension; dim++){
-				if (dim != min_dim)
-					boundary_at_filtration(dim,filtration,i);	
+				int n_qK = indices_of_filtered_boundaries[dim][i]+1;
+				int n_qL = indices_of_filtered_boundaries[dim][i+1]+1;
+				set_matlab_variables(0, dim, i,n_qK,n_qL);
+				
+				down_Laplacian(dim,i);
+				up_laplacian(dim,i);
+				std::vector<double> current_eigenvals = matlab_eigs(0,dim,i);
+				// if (dim != min_dim)
+				// 	B_a = boundary_at_filtration(dim, i);	
 
-				if (dim != top_dimension)
-					boundary_between_filtrations(dim, filtration, next_filtration,i); 
+				// if (dim != top_dimension)
+				// 	B_b = boundary_at_filtration(dim+1,i+1);
+					// boundary_between_filtrations(dim, filtration, next_filtration,i); 
 
-				std::vector<double> current_eigenvals = call_matlab_PL(0,dim,i);
+				// std::vector<double> current_eigenvals = call_matlab_PL(0,dim,i);
 				std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration;
 				spectra[dim].push_back(current_eigenvals);
 			}
 		}
 		print_all_spectra();
 		store_spectra();	
+	}
+
+	std::vector<double> matlab_eigs(int num_eigenvals, int dim, int i){
+
+		// int n_qK = indices_of_filtered_boundaries[dim][i]+1;
+		// if (num_eigenvals == 0){
+		// 	num_eigenvals = n_qK;
+		// }
+
+		// matlab::data::ArrayFactory factory;
+		// matlab::data::TypedArray<int32_t>  matlab_num_eigenvals = factory.createScalar<int32_t>(num_eigenvals);
+		// m_matlab_engine->setVariable(u"num_eigenvals", std::move(matlab_num_eigenvals));
+		m_matlab_engine->eval(u"tol = 1e-8;");
+
+		m_matlab_engine->eval(u"evals = eigs(L,num_eigenvals, 'smallestabs');");
+		m_matlab_engine->eval(u"evals(evals < tol) = 0;");
+
+		matlab::data::TypedArray<double> matlab_evals = m_matlab_engine->getVariable(u"evals");
+		std::vector<double> evals;
+		for(int i =0; i < (int) matlab_evals.getDimensions()[0]; ++i){
+			evals.push_back(matlab_evals[i]);
+		}
+
+		return evals;
+	}
+	void down_Laplacian(int dim, int filtration_index){
+		if (dim != min_dimension){
+			//Laplacian is L_down + L_up, set L=L_down now, add L_up later
+			B_a = boundary_at_filtration(dim, filtration_index);
+			SparseMatrix L_down = B_a*B_a.transpose();
+			eigen_sparse_to_matlab_engine(u"L", L_down);
+		}
+		else{
+			// int n_qK = indices_of_filtered_boundaries[dim][filtration_index]+1;
+			//Down-laplacina is 0, set L = 0 now, add L_up later
+			// L will have dimension same as C_a
+			m_matlab_engine->eval(u"L=zeros(n_qK,n_qK);");
+		}
+	}
+	void up_laplacian(int dim, int filtration_index){
+		int n_qK = indices_of_filtered_boundaries[dim][filtration_index]+1;
+		int n_qL = indices_of_filtered_boundaries[dim][filtration_index+1]+1;
+		if (dim!= top_dimension){
+			B_b = boundary_at_filtration(dim+1,filtration_index+1);
+			eigen_sparse_to_matlab_engine(u"B_qp1_L",B_b);
+			if (n_qK == n_qL){
+				m_matlab_engine->eval(u"L_up = B_qp1_L*B_qp1_L';");
+			} else{
+
+				m_matlab_engine->eval(u"D = B_qp1_L(n_qK+1:n_qL,:);");
+				m_matlab_engine->eval(u"[~, num_cols_D] = size(D);");
+				m_matlab_engine->eval(u"D_temp = [D' eye(num_cols_D)];");
+				m_matlab_engine->eval(u"reduction = rref(D_temp);");
+				m_matlab_engine->eval(u"R_qp1_L = reduction(:,1:n_qL-n_qK)';");
+				m_matlab_engine->eval(u"Y = reduction(:,n_qL-n_qK+1:end)';");
+				m_matlab_engine->eval(u"I = find(all(R_qp1_L==0,1));");
+				m_matlab_engine->eval(u"Z = Y(:,I);");
+				m_matlab_engine->eval(u"Z = orth(Z);");
+
+				m_matlab_engine->eval(u"B_qp1_L_K_temp = B_qp1_L*Z;");
+				
+				m_matlab_engine->eval(u"B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,:);");
+				m_matlab_engine->eval(u"L_up = B_qp1_L_K*B_qp1_L_K';");		
+			}
+			m_matlab_engine->eval(u"L = L + L_up;");
+		}
+		else{
+			//Do nothing. No up-Laplacian, use L=L_down, which is already stored. 
+		}
 	}
 
 	void print_Eigen_Sparse(SparseMatrix m){
@@ -707,19 +786,19 @@ public:
 		m_matlab_engine->setVariable(u"n_qL", std::move(matlab_n_qL));
 		m_matlab_engine->setVariable(u"num_eigenvals", std::move(matlab_num_eigenvals));
 
-		if (dim != min_dimension){
-			eigen_sparse_to_matlab_engine(u"B_a", B_a);
-		}
-		else {
-			m_matlab_engine->eval(u"B_a=zeros(0,n_qK);");
-		}
+		// if (dim != min_dimension){
+		// 	eigen_sparse_to_matlab_engine(u"B_a", B_a);
+		// }
+		// else {
+		// 	m_matlab_engine->eval(u"B_a=zeros(0,n_qK);");
+		// }
 
-		if (dim != top_dimension){
-			eigen_sparse_to_matlab_engine(u"B_qp1_L", B_ab);
-		} 
-		else {
-			m_matlab_engine->eval(u"B_qp1_L=zeros(n_qL,0);");
-		}
+		// if (dim != top_dimension){
+		// 	eigen_sparse_to_matlab_engine(u"B_qp1_L", B_b);
+		// } 
+		// else {
+		// 	m_matlab_engine->eval(u"B_qp1_L=zeros(n_qL,0);");
+		// }
 
 	}
 	void eigen_sparse_to_matlab_engine(std::u16string matlab_name, SparseMatrix A){
@@ -952,24 +1031,23 @@ public:
 
 	}
 
-	void boundary_at_filtration(int dim, double filtration, int filtration_index){
+	SparseMatrix boundary_at_filtration(int dim, int filtration_index){
 		//set B_a to be B_{dim}^{filtration}
 		//need to get the max row and max column
 		int next_row_index = indices_of_filtered_boundaries[dim-1][filtration_index];
 		int next_col_index = indices_of_filtered_boundaries[dim][filtration_index];
 		
-		B_a = sorted_boundaries[dim-1].block(0,0,next_row_index+1, next_col_index+1);
+		return sorted_boundaries[dim-1].block(0,0,next_row_index+1, next_col_index+1);
 	}
 
 	void boundary_between_filtrations(int dim, double a, double b, int filtration_index){
-		//Set the B_{p}^{a,b} representing \left(i_{p-1}^{a,b}\right)^* \circ d_{p}^b \circ \iota_{p}^{a,b}
-		// This is B_p^b with columns removed (zeroed out) if the boundary of that column is not in C_{p-1}^a
-		// So we go through all columns that are new in B_p^b and not in B_p^a
-		int b_row_index = indices_of_filtered_boundaries[dim][filtration_index+1];
-		int b_col_index = indices_of_filtered_boundaries[dim+1][filtration_index+1];
 
-		B_ab = sorted_boundaries[dim].block(0,0,b_row_index+1, b_col_index+1); 
-		// the last two arguments of .block are the *size* of the matrix, which would occur at index + 1 (https://eigen.tuxfamily.org/dox/group__TutorialBlockOperations.html)
+		// // So we go through all columns that are new in B_p^b and not in B_p^a
+		// int b_row_index = indices_of_filtered_boundaries[dim][filtration_index+1];
+		// int b_col_index = indices_of_filtered_boundaries[dim+1][filtration_index+1];
+
+		// B_ab = sorted_boundaries[dim].block(0,0,b_row_index+1, b_col_index+1); 
+		// // the last two arguments of .block are the *size* of the matrix, which would occur at index + 1 (https://eigen.tuxfamily.org/dox/group__TutorialBlockOperations.html)
 
 	}
 protected:
