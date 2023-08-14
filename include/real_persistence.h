@@ -701,40 +701,81 @@ public:
 			m_matlab_engine->eval(u"L=zeros(n_qK,n_qK);");
 		}
 	}
-	void up_laplacian(int dim, int filtration_index){
-		int n_qK = indices_of_filtered_boundaries[dim][filtration_index]+1;
+	void up_laplacian(int dim, int filtration_index){	
+		auto start_up = std::chrono::high_resolution_clock::now();
+					int n_qK = indices_of_filtered_boundaries[dim][filtration_index]+1;
 		int n_qL = indices_of_filtered_boundaries[dim][filtration_index+1]+1;
+		std::cout <<"\nup_laplacian timing{";
 		if (dim!= top_dimension && n_qL != 0){
 			int n_qp1_L = indices_of_filtered_boundaries[dim+1][filtration_index+1]+1;//accessing this element without knowing dim != top_dimension can lead to seg fault
 			if (n_qp1_L != 0){
+				auto start_B_p = std::chrono::high_resolution_clock::now();
+
 				B_b = boundary_at_filtration(dim+1,filtration_index+1);
+				auto end_B_p = std::chrono::high_resolution_clock::now();
+				auto duration_B_p = std::chrono::duration_cast<std::chrono::milliseconds>(end_B_p - start_B_p);
+				auto start_to_Matlab = std::chrono::high_resolution_clock::now();
 
 				eigen_sparse_to_matlab_engine(u"B_qp1_L",B_b);
-				if (n_qK == n_qL){
-					m_matlab_engine->eval(u"L_up = B_qp1_L*B_qp1_L';");
-				} else{
+				auto end_to_Matlab = std::chrono::high_resolution_clock::now();
+				auto duration_to_Matlab = std::chrono::duration_cast<std::chrono::milliseconds>(end_to_Matlab - start_to_Matlab);
+				auto start_L_up = std::chrono::high_resolution_clock::now();
 
+				std::cout <<"B_p=" << duration_B_p.count() << ",to_Matlab=" << duration_to_Matlab.count();
+				if (n_qK == n_qL){
+					auto start_L_up_basic = std::chrono::high_resolution_clock::now();
+					m_matlab_engine->eval(u"L_up = B_qp1_L*B_qp1_L';");
+					auto end_L_up_basic = std::chrono::high_resolution_clock::now();
+
+					auto duration_L_up_basic = std::chrono::duration_cast<std::chrono::milliseconds>(end_L_up_basic- start_L_up_basic);
+					std::cout <<",L_up_basic=" << duration_L_up_basic.count();
+				} else{
+					auto start_matlab_setup = std::chrono::high_resolution_clock::now();
 					m_matlab_engine->eval(u"D = B_qp1_L(n_qK+1:n_qL,:);");
 					m_matlab_engine->eval(u"[~, num_cols_D] = size(D);");
 					m_matlab_engine->eval(u"D_temp = [D' eye(num_cols_D)];");
+					auto end_matlab_setup = std::chrono::high_resolution_clock::now();
+					auto duration_matlab_setup = std::chrono::duration_cast<std::chrono::milliseconds>(end_matlab_setup - start_matlab_setup);
+					auto start_rref = std::chrono::high_resolution_clock::now();
 					m_matlab_engine->eval(u"reduction = rref(D_temp);");
+					auto end_rref = std::chrono::high_resolution_clock::now();
+					auto duration_rref = std::chrono::duration_cast<std::chrono::milliseconds>(end_rref - start_rref);
+					auto start_get_Z = std::chrono::high_resolution_clock::now();
 					m_matlab_engine->eval(u"R_qp1_L = reduction(:,1:n_qL-n_qK)';");
 					m_matlab_engine->eval(u"Y = reduction(:,n_qL-n_qK+1:end)';");
 					m_matlab_engine->eval(u"I = find(all(R_qp1_L==0,1));");
 					m_matlab_engine->eval(u"Z = Y(:,I);");
+					auto end_get_Z = std::chrono::high_resolution_clock::now();
+					auto duration_get_Z = std::chrono::duration_cast<std::chrono::milliseconds>(end_get_Z - start_get_Z);
+					auto start_ortho_Z = std::chrono::high_resolution_clock::now();
 					m_matlab_engine->eval(u"Z = orth(Z);");
-
+					auto end_ortho_Z = std::chrono::high_resolution_clock::now();
+					auto duration_ortho_Z = std::chrono::duration_cast<std::chrono::milliseconds>(end_ortho_Z - start_ortho_Z);
+					auto start_transform_B = std::chrono::high_resolution_clock::now();
 					m_matlab_engine->eval(u"B_qp1_L_K_temp = B_qp1_L*Z;");
 					
 					m_matlab_engine->eval(u"B_qp1_L_K = B_qp1_L_K_temp(1:n_qK,:);");
-					m_matlab_engine->eval(u"L_up = B_qp1_L_K*B_qp1_L_K';");		
+					auto end_transform_B = std::chrono::high_resolution_clock::now();
+					auto duration_transform_B = std::chrono::duration_cast<std::chrono::milliseconds>(end_transform_B - start_transform_B);
+					m_matlab_engine->eval(u"L_up = B_qp1_L_K*B_qp1_L_K';");	
+
+
+					std::cout << ",matlab_setup=" << duration_matlab_setup.count() << ",rref=" << duration_rref.count() << ",get_Z=" << duration_get_Z.count() << ",orth_z=" << duration_ortho_Z.count();
+					std::cout << ",transform_B=" << duration_transform_B.count();
+
 				}
+				auto end_L_up = std::chrono::high_resolution_clock::now();
+				auto duration_L_up = std::chrono::duration_cast<std::chrono::milliseconds>(end_L_up - start_L_up);
+				std::cout <<",L_up=" << duration_L_up.count();
 				m_matlab_engine->eval(u"L = L + L_up;");
 			}// end if n_qp1_L != 0
 		}// end if dim!= top_dimension && n_qL != 0
 		else{
 			//Do nothing. No up-Laplacian, use L=L_down, which is already stored. 
 		}
+		auto end_up = std::chrono::high_resolution_clock::now();
+		auto duration_up = std::chrono::duration_cast<std::chrono::milliseconds>(end_up - start_up);
+		std::cout << ",up=" << duration_up.count() << std::endl;
 	}
 
 	void set_matlab_variables(int num_eigenvals, int dim, int i, int n_qK, int n_qL){
