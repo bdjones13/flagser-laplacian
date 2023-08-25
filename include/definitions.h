@@ -29,12 +29,8 @@ typedef int64_t index_t;
 #endif
 
 typedef float value_t;
-// #ifdef REAL_COEFFICIENTS
 
-// typedef double coefficient_t;
-// #else
 typedef int16_t coefficient_t;
-// #endif
 
 // An issue was discover when porting the code on windows
 // 1UL on windows is ALWAYS 32 bits, when on unix systems is pointer size

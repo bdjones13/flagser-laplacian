@@ -527,6 +527,9 @@ private:
 	std::vector<SparseMatrix> sorted_boundaries;
 	std::vector<SparseMatrix> Laplacians;
 	std::vector<std::vector<std::vector<real_coefficient_t>>> spectra;
+	
+	std::vector<std::vector<int>> persistent_betti;
+	std::vector<std::vector<real_coefficient_t>> persistent_lambda;
 
 	SparseMatrix B_a;
 	SparseMatrix B_b;
@@ -594,9 +597,12 @@ public:
 				spectra[dim].push_back(current_eigenvals);
 			}
 		}
+		compute_summaries();
 		print_all_spectra();
 		store_spectra();	
+		store_spectra_summary();
 	}
+
 
 	void print_Eigen_Sparse(SparseMatrix m){
 		Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "];");
@@ -681,6 +687,7 @@ public:
 		return evals;
 	}
 	void down_Laplacian(int dim, int filtration_index){
+		// Note: easy to do this in C++, but have to have in MATLAB for up_laplacian and eigenvalues
 		if (dim != min_dimension){
 			//Laplacian is L_down + L_up, set L=L_down now, add L_up later
 			B_a = boundary_at_filtration(dim, filtration_index);
@@ -831,6 +838,49 @@ public:
 			}
 			outstream.close();
 		}
+	}
+	void compute_summaries(){
+		for (int i = 0; i < (int) spectra.size(); i++){
+			std::vector<std::vector<real_coefficient_t>> current_dim = spectra[i];
+			for (int j = 0; j < (int) current_dim.size(); j++){
+				std::vector<real_coefficient_t> current_filtration = current_dim[j];
+				int current_betti = 0;
+				for (int k = 0; k < (int) current_filtration.size(); k++){
+					if (current_filtration[k] > 0){
+						persistent_lambda[i].push_back(current_filtration[k]);
+						persistent_betti[i].push_back(current_betti);
+						break;
+					}
+					current_betti++;
+				}
+			}
+		}
+	}
+	void store_spectra_summary(){
+		//write all the filtration, betti_k^{i,i+1}, and lambda_k^{i,i+1}
+		std::ofstream outstream("spectra_summary.txt");
+		
+		//column headers of tab-separated data
+		outstream << "i\tfiltration\t";
+		for (int dim = min_dimension; dim < top_dimension; dim++){
+			outstream << "\tbetti_" << dim;
+		}
+		for (int dim = min_dimension; dim < top_dimension; dim++){
+			outstream << "\tlambda_" << dim;
+		}
+
+		//output values
+		for (int filtration_index = 0; filtration_index < (int) total_filtration.size(); filtration_index++){
+			outstream << filtration_index << "\t" << total_filtration[filtration_index];
+			for (int dim = min_dimension; dim < top_dimension; dim++){
+				outstream << "\t" << persistent_betti[dim][filtration_index];
+			}
+			for (int dim = min_dimension; dim < top_dimension; dim++){
+				outstream << "\t" << persistent_lambda[dim][filtration_index];
+			}
+			outstream << std::endl;
+		}
+
 	}
 	// std::vector<double> compute_spectra(int dim, int num_eigenvals){
 
