@@ -558,6 +558,7 @@ public:
 									unsigned short max_dim = std::numeric_limits<unsigned short>::max()){
 		min_dimension = min_dim;
 		max_dimension = max_dim;
+		std::cout << "max_dimension = " << max_dimension << std::endl;
 		compute_coboundaries(min_dimension, max_dimension);
 		sort_coboundaries();
 		
@@ -840,18 +841,36 @@ public:
 		}
 	}
 	void compute_summaries(){
+		for (int dim = min_dimension; dim <= top_dimension; dim++){
+			persistent_lambda.push_back(std::vector<real_coefficient_t>());
+			persistent_betti.push_back(std::vector<int>());
+		}
+		double thresshold = pow(0.1,20);
 		for (int i = 0; i < (int) spectra.size(); i++){
 			std::vector<std::vector<real_coefficient_t>> current_dim = spectra[i];
+
 			for (int j = 0; j < (int) current_dim.size(); j++){
+				// NB: stop loop one before last filtration!
+				// 	the last filtration step is a dummy filtration
+				//	for conveniently computing the final state of the complex
 				std::vector<real_coefficient_t> current_filtration = current_dim[j];
 				int current_betti = 0;
 				for (int k = 0; k < (int) current_filtration.size(); k++){
-					if (current_filtration[k] > 0){
+					if (current_filtration[k] > thresshold){
 						persistent_lambda[i].push_back(current_filtration[k]);
 						persistent_betti[i].push_back(current_betti);
 						break;
 					}
 					current_betti++;
+				}
+				if (current_betti == 0){
+					persistent_betti[i].push_back(0);
+					if (current_filtration.size() > 0){
+						persistent_lambda[i].push_back(current_filtration[0]);
+					} else{
+						persistent_lambda[i].push_back(0);
+					}
+
 				}
 			}
 		}
@@ -861,26 +880,26 @@ public:
 		std::ofstream outstream("spectra_summary.txt");
 		
 		//column headers of tab-separated data
-		outstream << "i\tfiltration\t";
-		for (int dim = min_dimension; dim < top_dimension; dim++){
+		outstream << "i\tfiltration";
+		for (int dim = min_dimension; dim <= top_dimension; dim++){
 			outstream << "\tbetti_" << dim;
 		}
-		for (int dim = min_dimension; dim < top_dimension; dim++){
+		for (int dim = min_dimension; dim <= top_dimension; dim++){
 			outstream << "\tlambda_" << dim;
 		}
-
+		outstream << std::endl;
 		//output values
-		for (int filtration_index = 0; filtration_index < (int) total_filtration.size(); filtration_index++){
+		for (int filtration_index = 0; filtration_index < (int) total_filtration.size()-1; filtration_index++){
 			outstream << filtration_index << "\t" << total_filtration[filtration_index];
-			for (int dim = min_dimension; dim < top_dimension; dim++){
+			for (int dim = min_dimension; dim <= top_dimension; dim++){
 				outstream << "\t" << persistent_betti[dim][filtration_index];
 			}
-			for (int dim = min_dimension; dim < top_dimension; dim++){
+			for (int dim = min_dimension; dim <= top_dimension; dim++){
 				outstream << "\t" << persistent_lambda[dim][filtration_index];
 			}
 			outstream << std::endl;
 		}
-
+		outstream.close();
 	}
 	// std::vector<double> compute_spectra(int dim, int num_eigenvals){
 
@@ -967,7 +986,7 @@ public:
 
 			complex.prepare_next_dimension(dimension);//DEBUG TODO: is this in the right place
 			coboundaries.push_back(complex.get_coboundary_as_Eigen());
-			if (complex.is_top_dimension()) {
+			if (complex.is_top_dimension() || dimension >= max_dimension) {
 				top_dimension = dimension;
 				output->remaining_homology_is_trivial();
 				break;
