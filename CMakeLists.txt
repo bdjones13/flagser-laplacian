@@ -16,16 +16,16 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 find_package(Threads REQUIRED)
 
-find_package(HDF5)
-IF(HDF5_FOUND)
-    include_directories(${HDF5_INCLUDE_DIR})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWITH_HDF5")
-ENDIF()
+# find_package(HDF5)
+# IF(HDF5_FOUND)
+#     include_directories(${HDF5_INCLUDE_DIR})
+#     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWITH_HDF5")
+# ENDIF()
 
-
-set(Matlab_ROOT_DIR "/usr/local/MATLAB/R2022b")
-# set(Matlab_MEX_LIBRARY "/mnt/c/Program Files/MATLAB/R2022b/bin/mex.bat")
-# set(Matlab_MEX_EXTENSION "/mnt/c/Program Files/MATLAB/R2022b/bin/mexext.bat")
+##########################################################################
+######    CHANGE THIS DEPENDING ON YOUR MACHINE   ######################## 
+set(Matlab_ROOT_DIR "/usr/local/MATLAB/R2022b")###########################
+##########################################################################
 
 find_package(Matlab)
 find_library(LIB_MATLAB_DATA_ARRAY 
@@ -54,50 +54,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_POSITION_INDEPENDANT}")
 set(CMAKE_VS_PLATFORM_NAME "x64")
 set(CMAKE_VS_PLATFORM_TOOLSET_HOST_ARCHITECTURE "x64")
 
-# Also add the time of the file + output file into consideration
-# Add the include dir to the watch list
-
-add_custom_command(
-    COMMAND ../build_custom_algorithms.sh
-    DEPENDS parser/math_parser.py algorithms.math
-    OUTPUT include/algorithms.h
-    COMMENT "Check for custom algorithms"
-)
-add_custom_target(generate_custom_algorithms DEPENDS include/algorithms.h)
-
-
-# add_executable(flagser src/flagser.cpp include/algorithms.h)
-# add_dependencies(flagser generate_custom_algorithms)
-# set_target_properties(flagser PROPERTIES LINKER_LANGUAGE CXX)
-
-# add_executable(flagser_retrieve_persistence src/flagser.cpp include/algorithms.h)
-# add_dependencies(flagser_retrieve_persistence generate_custom_algorithms)
-# target_compile_definitions(flagser_retrieve_persistence PRIVATE RETRIEVE_PERSISTENCE)
-# set_target_properties(flagser_retrieve_persistence PROPERTIES LINKER_LANGUAGE CXX)
-
-
-# add_executable(ripser src/ripser.cpp)
-# set_target_properties(ripser PROPERTIES LINKER_LANGUAGE CXX)
-
-# add_executable(flagser-count src/flagser-count.cpp)
-# set_target_properties(flagser-count PROPERTIES LINKER_LANGUAGE CXX)
-
-# add_executable(er src/er.cpp)
-# set_target_properties(er PROPERTIES LINKER_LANGUAGE CXX)
 
 IF(NOT MSVC)
-# add_executable(flagser-coefficients src/flagser.cpp)
-# add_dependencies(flagser-coefficients generate_custom_algorithms)
-# target_compile_definitions(flagser-coefficients PRIVATE USE_COEFFICIENTS=1)
-# set_target_properties(flagser-coefficients PROPERTIES LINKER_LANGUAGE CXX)
-
-# add_executable(ripser-coefficients src/ripser.cpp)
-# target_compile_definitions(ripser-coefficients PRIVATE USE_COEFFICIENTS=1)
-# set_target_properties(ripser-coefficients PROPERTIES LINKER_LANGUAGE CXX)
-
-# Ben Jones 2023-03-01 for flagser-real
 add_executable(flagser-real src/flagser-laplacian.cpp)
-add_dependencies(flagser-real generate_custom_algorithms)
 target_compile_definitions(flagser-real PRIVATE USE_COEFFICIENTS=1 REAL_COEFFICIENTS=1)
 set_target_properties(flagser-real PROPERTIES LINKER_LANGUAGE CXX)
 
@@ -114,57 +73,23 @@ message("** CMAKE_CXX_LINK_FLAGS: \t\t${CMAKE_CXX_LINK_FLAGS}")
 message("")
 
 IF(HDF5_FOUND)
-# TARGET_LINK_LIBRARIES(flagser ${HDF5_LIBRARIES} pthread)
-# TARGET_LINK_LIBRARIES(flagser_retrieve_persistence ${HDF5_LIBRARIES} pthread)
-# TARGET_LINK_LIBRARIES(flagser-count ${HDF5_LIBRARIES} pthread)
-# TARGET_LINK_LIBRARIES(er ${HDF5_LIBRARIES} pthread)
-# TARGET_LINK_LIBRARIES(ripser ${HDF5_LIBRARIES} pthread)
-IF(NOT MSVC)
-# TARGET_LINK_LIBRARIES(ripser-coefficients ${HDF5_LIBRARIES} pthread)
-# TARGET_LINK_LIBRARIES(flagser-coefficients ${HDF5_LIBRARIES} pthread)
-TARGET_LINK_LIBRARIES(flagser-real ${HDF5_LIBRARIES} pthread ${LIB_MATLAB_DATA_ARRAY} ${LIB_MATLAB_ENGINE}) # Ben Jones 2023-03-01, added matlab 2023-03-15
-ENDIF()
+  IF(NOT MSVC)
+    TARGET_LINK_LIBRARIES(flagser-real ${HDF5_LIBRARIES} pthread ${LIB_MATLAB_DATA_ARRAY} ${LIB_MATLAB_ENGINE}) # Ben Jones 2023-03-01, added matlab 2023-03-15
+  ENDIF()
 ELSE()
-TARGET_LINK_LIBRARIES(flagser-real pthread ${LIB_MATLAB_DATA_ARRAY} ${LIB_MATLAB_ENGINE}) # Ben Jones 2023-03-22
+  TARGET_LINK_LIBRARIES(flagser-real pthread ${LIB_MATLAB_DATA_ARRAY} ${LIB_MATLAB_ENGINE}) # Ben Jones 2023-03-22
 ENDIF()
 
 IF(NOT MSVC)
-install(TARGETS flagser-real RUNTIME DESTINATION bin) # add flagser-real?
-# install(TARGETS flagser flagser-coefficients flagser-count flagser-real RUNTIME DESTINATION bin) # add flagser-real?
+  install(TARGETS flagser-real RUNTIME DESTINATION bin) 
 ELSE()
-install(TARGETS flagser flagser-count RUNTIME DESTINATION bin)
+  install(TARGETS flagser flagser-count RUNTIME DESTINATION bin)
 ENDIF()
 
-# add_custom_command(
-#     TARGET flagser POST_BUILD
-#     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:flagser> ${CMAKE_SOURCE_DIR})
-# add_custom_command(
-#     TARGET flagser_retrieve_persistence POST_BUILD
-#     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:flagser_retrieve_persistence> ${CMAKE_SOURCE_DIR})
-# add_custom_command(
-#     TARGET flagser-count POST_BUILD
-#     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:flagser-count> ${CMAKE_SOURCE_DIR})
-# add_custom_command(
-#     TARGET ripser POST_BUILD
-#     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:ripser> ${CMAKE_SOURCE_DIR})
-# add_custom_command(
-#     TARGET er POST_BUILD
-#     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:er> ${CMAKE_SOURCE_DIR}/tools)
 IF(NOT MSVC)
-# add_custom_command(
-#     TARGET flagser-coefficients POST_BUILD
-#     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:flagser-coefficients> ${CMAKE_SOURCE_DIR})
-# add_custom_command(
-#     TARGET ripser-coefficients POST_BUILD
-#     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:ripser-coefficients> ${CMAKE_SOURCE_DIR})
 add_custom_command( # Ben Jones 2023-03-01
         TARGET flagser-real POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:flagser-real> ${CMAKE_SOURCE_DIR})
 
 ENDIF()
 
-# if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-#     include(CTest)
-#     add_subdirectory(test)
-#     enable_testing()
-# endif()
