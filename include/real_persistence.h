@@ -599,7 +599,7 @@ public:
  
 				std::cout << "\na=" << filtration << ", b=" << next_filtration << ", dim=" << dim;
 				// std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration;
-				std::cout << ", time (ms):" << duration_dim_filt.count() << std::endl;// << ", duration_up=" << duration_up.count();
+				std::cout << ", time (ms):" << duration_dim_filt.count();// << ", duration_up=" << duration_up.count();
 				
 				spectra[dim].push_back(current_eigenvals);
 			}
@@ -832,7 +832,7 @@ public:
 	void store_spectra(){
 		std::cout << "\nBegin writing all spectra to files...\n" << std::flush;
 		for (int i = 0; i < (int) spectra.size(); i++){
-			std::cout <<"Writing spectra of dimension " << i << "to file spectra_" << i << ".txt\n";
+			std::cout <<"Writing spectra of dimension " << i << " to file " << out_prefix << "_spectra_" << i << ".txt\n";
 			std::ofstream outstream("./" + out_prefix + "_spectra_" + std::to_string(i) + ".txt");
 			
 			std::vector<std::vector<real_coefficient_t>> current_dim = spectra[i];
