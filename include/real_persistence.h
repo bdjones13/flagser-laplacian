@@ -865,25 +865,40 @@ public:
 				//	for conveniently computing the final state of the complex
 				std::vector<real_coefficient_t> current_filtration = current_dim[j];
 				int current_betti = 0;
+				bool added = false;
 				for (int k = 0; k < (int) current_filtration.size(); k++){
 					if (current_filtration[k] > thresshold){
 						persistent_lambda[i].push_back(current_filtration[k]);
 						persistent_betti[i].push_back(current_betti);
+						added = true;
 						break;
 					}
 					current_betti++;
 				}
-				if (current_betti == 0){
-					persistent_betti[i].push_back(0);
-					if (current_filtration.size() > 0){
-						persistent_lambda[i].push_back(current_filtration[0]);
-					} else{
+				// if (current_betti == 0){
+				// 	persistent_betti[i].push_back(0);
+				// 	if (current_filtration.size() > 0){
+				// 		persistent_lambda[i].push_back(current_filtration[0]);
+				// 	} else{
+				// 		persistent_lambda[i].push_back(0);
+				// 	}
+				if (!added){
+					if (current_betti == 0){
+						persistent_betti[i].push_back(0);
+						if (current_filtration.size() > 0){
+							persistent_lambda[i].push_back(current_filtration[0]);
+						} else {
+							persistent_lambda[i].push_back(0);
+						}
+					} else { //never encountered a nonzero eigenvalue
+						persistent_betti[i].push_back(current_betti);
 						persistent_lambda[i].push_back(0);
 					}
+				
 
-				}
-			}
-		}
+				} //end !added
+			} //end j
+		} // end i
 	}
 	void store_spectra_summary(){
 		//write all the filtration, betti_k^{i,i+1}, and lambda_k^{i,i+1}
