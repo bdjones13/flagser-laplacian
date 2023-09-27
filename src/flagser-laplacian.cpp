@@ -57,7 +57,7 @@ void compute_homology(filtered_directed_graph_t& graph, const flagser_parameters
 									//output.get(),
 								 	params.max_entries,
 									// params.max_filtration,
-									params.out_folder);
+									params.out_prefix);
 		persistence_computer.compute_persistent_spectra(params.min_dimension, params.max_dimension);
 	}
 

@@ -11,9 +11,6 @@
 #include <iostream>
 #include <queue>
 #include <set>
-#include <fstream>
-#include <cstdint>
-#include <filesystem>
 
 #include "definitions.h"
 // #include "output/base.h"
@@ -511,7 +508,7 @@ private:
 	// value_t max_filtration;
 	size_t max_entries;
 	
-	std::string out_folder;
+	std::string out_prefix;
 	index_t euler_characteristic = 0;
 	bool print_betti_numbers_to_console = true;
 
@@ -550,10 +547,10 @@ public:
 	real_persistence_computer_t(Complex& _complex,// output_t<Complex>* _output,
 	                       size_t _max_entries = std::numeric_limits<size_t>::max(), //int _modulus = 2,
 	                    //    value_t _max_filtration = std::numeric_limits<value_t>::max(),
-						   std::string _out_folder = "./output/")
+						   std::string _out_prefix = "")
 	    : complex(_complex),// output(_output),
 		//  max_filtration(_max_filtration),
-		 max_entries(_max_entries), out_folder(_out_folder){
+		 max_entries(_max_entries), out_prefix(_out_prefix){
 #ifdef USE_MATLAB
 			m_matlab_engine = matlab::engine::startMATLAB();
 #endif
@@ -564,8 +561,7 @@ public:
 
 	void compute_persistent_spectra(unsigned short min_dim = 0,
 									unsigned short max_dim = std::numeric_limits<unsigned short>::max(),
-									std::string out_folder = "./output/"){
-		create_output_directory(out_folder);
+									std::string out_prefix = ""){
 		min_dimension = min_dim;
 		max_dimension = max_dim;
 		// std::cout << "max_dimension = " << max_dimension << std::endl;
@@ -837,7 +833,7 @@ public:
 		std::cout << "\nBegin writing all spectra to files...\n" << std::flush;
 		for (int i = 0; i < (int) spectra.size(); i++){
 			std::cout <<"Writing spectra of dimension " << i << "to file spectra_" << i << ".txt\n";
-			std::ofstream outstream("./" + out_folder + "/spectra_" + std::to_string(i) + ".txt");
+			std::ofstream outstream("./" + out_prefix + "_spectra_" + std::to_string(i) + ".txt");
 			
 			std::vector<std::vector<real_coefficient_t>> current_dim = spectra[i];
 			for (int j = 0; j < (int) current_dim.size(); j++){
@@ -902,7 +898,7 @@ public:
 	}
 	void store_spectra_summary(){
 		//write all the filtration, betti_k^{i,i+1}, and lambda_k^{i,i+1}
-		std::ofstream outstream("./" + out_folder + "/spectra_summary.txt");
+		std::ofstream outstream("./" + out_prefix + "_spectra_summary.txt");
 		
 		//column headers of tab-separated data
 		outstream << "i\tfiltration";
@@ -926,20 +922,7 @@ public:
 		}
 		outstream.close();
 	}
-	void create_output_directory(std::string out_folder){
-		const std::filesystem::path path{out_folder};
-		std::filesystem::file_status s = std::filesystem::file_status{};
-		if (std::filesystem::status_known(s) ? std::filesystem::exists(s) : std::filesystem::exists(path)){
-			throw std::invalid_argument("The output directory already exists. Exiting.");
-    	}
-    	else{			
-			std::filesystem::create_directory(path);
-			if (std::filesystem::status_known(s) ? std::filesystem::exists(s) : std::filesystem::exists(path)){
-				std::cout << "successfully created output directory" << out_folder << std::endl;
-			}
-    }
-
-	}
+	
 	// std::vector<double> compute_spectra(int dim, int num_eigenvals){
 
 	// 	//most of this code is identical to https://github.com/wangru25/HERMES/blob/main/src/snapshot.cpp

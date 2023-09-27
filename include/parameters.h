@@ -51,8 +51,8 @@ public:
 
 		if ((it = named_arguments.find("in-memory")) != named_arguments.end()) { in_memory = true; }
 
-		if ((it = named_arguments.find("out-folder")) != named_arguments.end()) {out_folder = it->second;}
-		// Persistent Laplacian produces multiple output files, best to put in a folder
+		if ((it = named_arguments.find("out-prefix")) != named_arguments.end()) {out_prefix = it->second;}
+		// Persistent Laplacian produces multiple output files, best to give these a prefix
 #ifdef USE_COEFFICIENTS
 		if ((it = named_arguments.find("modulus")) != named_arguments.end()) { modulus = atoi(it->second); }
 #endif
@@ -73,7 +73,7 @@ public:
 	std::string output_format = "barcode";
 	std::string cache = "";
 	std::string hdf5_type = "";
-	std::string out_folder = "./output/";
+	std::string out_prefix = "";
 	std::unique_ptr<filtration_algorithm_t> filtration_algorithm;
 
 private:
