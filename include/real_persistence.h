@@ -11,9 +11,12 @@
 #include <iostream>
 #include <queue>
 #include <set>
+#include <fstream>
+#include <cstdint>
+#include <filesystem>
 
 #include "definitions.h"
-#include "output/base.h"
+// #include "output/base.h"
 
 #include "Eigen/Eigen/src/Core/IO.h"
 #include "MatlabEngine.hpp"
@@ -504,9 +507,11 @@ private:
 template <typename Complex> class real_persistence_computer_t {
 private:
 	Complex& complex;
-	output_t<Complex>* output;
-	value_t max_filtration;
+	// output_t<Complex>* output;
+	// value_t max_filtration;
 	size_t max_entries;
+	
+	std::string out_folder;
 	index_t euler_characteristic = 0;
 	bool print_betti_numbers_to_console = true;
 
@@ -542,10 +547,13 @@ private:
 #endif
 
 public:
-	real_persistence_computer_t(Complex& _complex, output_t<Complex>* _output,
+	real_persistence_computer_t(Complex& _complex,// output_t<Complex>* _output,
 	                       size_t _max_entries = std::numeric_limits<size_t>::max(), //int _modulus = 2,
-	                       value_t _max_filtration = std::numeric_limits<value_t>::max())
-	    : complex(_complex), output(_output), max_filtration(_max_filtration), max_entries(_max_entries) {
+	                    //    value_t _max_filtration = std::numeric_limits<value_t>::max(),
+						   std::string _out_folder = "./output/")
+	    : complex(_complex),// output(_output),
+		//  max_filtration(_max_filtration),
+		 max_entries(_max_entries), out_folder(_out_folder){
 #ifdef USE_MATLAB
 			m_matlab_engine = matlab::engine::startMATLAB();
 #endif
@@ -555,10 +563,12 @@ public:
 	void set_print_betti_numbers(bool print_betti_numbers) { print_betti_numbers_to_console = print_betti_numbers; }
 
 	void compute_persistent_spectra(unsigned short min_dim = 0,
-									unsigned short max_dim = std::numeric_limits<unsigned short>::max()){
+									unsigned short max_dim = std::numeric_limits<unsigned short>::max(),
+									std::string out_folder = "./output/"){
+		create_output_directory(out_folder);
 		min_dimension = min_dim;
 		max_dimension = max_dim;
-		std::cout << "max_dimension = " << max_dimension << std::endl;
+		// std::cout << "max_dimension = " << max_dimension << std::endl;
 		compute_coboundaries(min_dimension, max_dimension);
 		sort_coboundaries();
 		
@@ -591,15 +601,15 @@ public:
 				auto duration_dim_filt = std::chrono::duration_cast<std::chrono::milliseconds>(end_dim_filt - start_dim_filt);
 				auto duration_up = std::chrono::duration_cast<std::chrono::milliseconds>(end_up - start_up);
  
-				
-				std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration;
-				std::cout << ",times in ms: duration_dim_filt=" << duration_dim_filt.count() << ", duration_up=" << duration_up.count();
+				std::cout << "\na=" << filtration << ", b=" << next_filtration << ", dim=" << dim;
+				// std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration;
+				std::cout << ", time (ms):" << duration_dim_filt.count() << std::endl;// << ", duration_up=" << duration_up.count();
 				
 				spectra[dim].push_back(current_eigenvals);
 			}
 		}
 		compute_summaries();
-		print_all_spectra();
+		// print_all_spectra();
 		store_spectra();	
 		store_spectra_summary();
 	}
@@ -723,7 +733,7 @@ public:
 					m_matlab_engine->eval(u"reduction = rref(D_temp);"); // basically all of the computational time is in this rref
 					auto end_rref = std::chrono::high_resolution_clock::now();
 					auto duration_rref = std::chrono::duration_cast<std::chrono::milliseconds>(end_rref - start_rref);
-					std::cout << "[rref_time=" << duration_rref.count() << "]";
+					// std::cout << "[rref_time=" << duration_rref.count() << "]";
 
 
 					m_matlab_engine->eval(u"R_qp1_L = reduction(:,1:n_qL-n_qK)';");
@@ -827,7 +837,7 @@ public:
 		std::cout << "\nBegin writing all spectra to files...\n" << std::flush;
 		for (int i = 0; i < (int) spectra.size(); i++){
 			std::cout <<"Writing spectra of dimension " << i << "to file spectra_" << i << ".txt\n";
-			std::ofstream outstream("spectra_" + std::to_string(i) + ".txt");
+			std::ofstream outstream("./" + out_folder + "/spectra_" + std::to_string(i) + ".txt");
 			
 			std::vector<std::vector<real_coefficient_t>> current_dim = spectra[i];
 			for (int j = 0; j < (int) current_dim.size(); j++){
@@ -877,7 +887,7 @@ public:
 	}
 	void store_spectra_summary(){
 		//write all the filtration, betti_k^{i,i+1}, and lambda_k^{i,i+1}
-		std::ofstream outstream("spectra_summary.txt");
+		std::ofstream outstream("./" + out_folder + "/spectra_summary.txt");
 		
 		//column headers of tab-separated data
 		outstream << "i\tfiltration";
@@ -900,6 +910,20 @@ public:
 			outstream << std::endl;
 		}
 		outstream.close();
+	}
+	void create_output_directory(std::string out_folder){
+		const std::filesystem::path path{out_folder};
+		std::filesystem::file_status s = std::filesystem::file_status{};
+		if (std::filesystem::status_known(s) ? std::filesystem::exists(s) : std::filesystem::exists(path)){
+			throw std::invalid_argument("The output directory already exists. Exiting.");
+    	}
+    	else{			
+			std::filesystem::create_directory(path);
+			if (std::filesystem::status_known(s) ? std::filesystem::exists(s) : std::filesystem::exists(path)){
+				std::cout << "successfully created output directory" << out_folder << std::endl;
+			}
+    }
+
 	}
 	// std::vector<double> compute_spectra(int dim, int num_eigenvals){
 
@@ -988,7 +1012,7 @@ public:
 			coboundaries.push_back(complex.get_coboundary_as_Eigen());
 			if (complex.is_top_dimension() || dimension >= max_dimension) {
 				top_dimension = dimension;
-				output->remaining_homology_is_trivial();
+				// output->remaining_homology_is_trivial();
 				break;
 			}
 		}

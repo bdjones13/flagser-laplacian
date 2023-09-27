@@ -31,17 +31,17 @@ void compute_homology(filtered_directed_graph_t& graph, const flagser_parameters
 	std::vector<filtered_directed_graph_t> subgraphs{graph};
 	if (params.split_into_connected_components) { subgraphs = graph.get_connected_subgraphs(2); }
 
-	auto output = get_output<T>(params);
+	// auto output = get_output<T>(params);
 	size_t component_number = 1;
 	for (auto subgraph : subgraphs) {
 		T complex(subgraph, params);
 
-		output->set_complex(&complex);
+		// output->set_complex(&complex);
 		if (params.split_into_connected_components) {
-			if (component_number > 1) output->print("\n");
-			output->print("## Path component number ");
-			output->print(std::to_string(component_number));
-			output->print("\n");
+			// if (component_number > 1) output->print("\n");
+			// output->print("## Path component number ");
+			// output->print(std::to_string(component_number));
+			// output->print("\n");
 
 #ifdef INDICATE_PROGRESS
 			std::cout << "\033[K";
@@ -54,13 +54,16 @@ void compute_homology(filtered_directed_graph_t& graph, const flagser_parameters
 
 
 		real_persistence_computer_t<decltype(complex)> persistence_computer(complex, 
-									output.get(), params.max_entries);
+									//output.get(),
+								 	params.max_entries,
+									// params.max_filtration,
+									params.out_folder);
 		persistence_computer.compute_persistent_spectra(params.min_dimension, params.max_dimension);
 	}
 
-	if (params.split_into_connected_components) { output->print("\n## Total\n"); }
+	// if (params.split_into_connected_components) { output->print("\n## Total\n"); }
 
-	output->print_aggregated_results();
+	// output->print_aggregated_results();
 
 
 }

@@ -27,7 +27,6 @@ protected:
 
 public:
 	file_output_t(const std::string filename) {
-
 		std::ifstream f(filename);
 		if (f.good()) {
 			std::string err_msg = "The output file already exists, aborting.";

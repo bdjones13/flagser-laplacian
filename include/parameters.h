@@ -38,7 +38,9 @@ public:
 		if (has_zero_filtration_and_no_explicit_output(named_arguments)) { output_format = "betti"; }
 
 		filtration_algorithm.reset(
-		    get_filtration_computer(get_argument_or_default(named_arguments, "filtration", "zero")));
+		    // get_filtration_computer(get_argument_or_default(named_arguments, "filtration", "zero")));
+			// For Persistent Laplacian , use "max" filtration as default
+			get_filtration_computer(get_argument_or_default(named_arguments, "filtration", "max")));
 
 		if ((it = named_arguments.find("threshold")) != named_arguments.end()) {
 			std::string parameter = std::string(it->second);
@@ -49,6 +51,8 @@ public:
 
 		if ((it = named_arguments.find("in-memory")) != named_arguments.end()) { in_memory = true; }
 
+		if ((it = named_arguments.find("out-folder")) != named_arguments.end()) {out_folder = it->second;}
+		// Persistent Laplacian produces multiple output files, best to put in a folder
 #ifdef USE_COEFFICIENTS
 		if ((it = named_arguments.find("modulus")) != named_arguments.end()) { modulus = atoi(it->second); }
 #endif
@@ -69,6 +73,7 @@ public:
 	std::string output_format = "barcode";
 	std::string cache = "";
 	std::string hdf5_type = "";
+	std::string out_folder = "./output/";
 	std::unique_ptr<filtration_algorithm_t> filtration_algorithm;
 
 private:
