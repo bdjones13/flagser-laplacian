@@ -15,8 +15,8 @@ public:
 	flagser_parameters(const named_arguments_t& named_arguments) {
 		named_arguments_t::const_iterator it;
 
-		output_name =
-		    get_argument_or_fail(named_arguments, "out", "Please provide an output filename via \"--out filename\" .");
+		//output_name =
+		//    get_argument_or_fail(named_arguments, "out", "Please provide an output filename via \"--out filename\" .");
 
 		if ((it = named_arguments.find("in-format")) != named_arguments.end()) { input_format = it->second; }
 
