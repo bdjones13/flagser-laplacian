@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 
-project(flagser)
+project(flagser-laplacian)
 
 enable_language(CXX)
 
@@ -50,9 +50,9 @@ set(CMAKE_VS_PLATFORM_TOOLSET_HOST_ARCHITECTURE "x64")
 
 
 IF(NOT MSVC)
-add_executable(flagser-real src/flagser-laplacian.cpp)
-target_compile_definitions(flagser-real PRIVATE USE_COEFFICIENTS=1 REAL_COEFFICIENTS=1)
-set_target_properties(flagser-real PROPERTIES LINKER_LANGUAGE CXX)
+add_executable(flagser-laplacian src/flagser-laplacian.cpp)
+target_compile_definitions(flagser-laplacian PRIVATE USE_COEFFICIENTS=1 REAL_COEFFICIENTS=1)
+set_target_properties(flagser-laplacian PROPERTIES LINKER_LANGUAGE CXX)
 
 ELSE()
   message("On Windows, compilation with coefficients is currently not supported.")
@@ -68,22 +68,22 @@ message("")
 
 IF(HDF5_FOUND)
   IF(NOT MSVC)
-    TARGET_LINK_LIBRARIES(flagser-real ${HDF5_LIBRARIES} pthread ${LIB_MATLAB_DATA_ARRAY} ${LIB_MATLAB_ENGINE}) # Ben Jones 2023-03-01, added matlab 2023-03-15
+    TARGET_LINK_LIBRARIES(flagser-laplacian ${HDF5_LIBRARIES} pthread ${LIB_MATLAB_DATA_ARRAY} ${LIB_MATLAB_ENGINE}) # Ben Jones 2023-03-01, added matlab 2023-03-15
   ENDIF()
 ELSE()
-  TARGET_LINK_LIBRARIES(flagser-real pthread ${LIB_MATLAB_DATA_ARRAY} ${LIB_MATLAB_ENGINE}) # Ben Jones 2023-03-22
+  TARGET_LINK_LIBRARIES(flagser-laplacian pthread ${LIB_MATLAB_DATA_ARRAY} ${LIB_MATLAB_ENGINE}) # Ben Jones 2023-03-22
 ENDIF()
 
 IF(NOT MSVC)
-  install(TARGETS flagser-real RUNTIME DESTINATION bin) 
-ELSE()
-  install(TARGETS flagser flagser-count RUNTIME DESTINATION bin)
+  install(TARGETS flagser-laplacian RUNTIME DESTINATION bin) 
+# ELSE()
+  # install(TARGETS flagser flagser-count RUNTIME DESTINATION bin)
 ENDIF()
 
 IF(NOT MSVC)
 add_custom_command( # Ben Jones 2023-03-01
-        TARGET flagser-real POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:flagser-real> ${CMAKE_SOURCE_DIR})
+        TARGET flagser-laplacian POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:flagser-laplacian> ${CMAKE_SOURCE_DIR})
 
 ENDIF()
 

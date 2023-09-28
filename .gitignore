@@ -22,3 +22,4 @@ include/algorithms.h
 build/
 *.out
 flagser-real
+flagser-laplacian
