@@ -159,7 +159,7 @@ void prepare_graph_filtration(Complex& complex, filtered_directed_graph_t& graph
 		computed_edge_filtration = true;
 #ifdef INDICATE_PROGRESS
 		std::cout << "\033[K"
-		          << "computing the filtration of all edges" << std::flush << "\r";
+		          << "computing the filtration of all edges\n" << std::flush;// << "\r";
 #endif
 
 		// Dummy parameter because we pass by reference the argument and
@@ -342,8 +342,7 @@ struct real_store_coboundaries_in_cache_t {
 #ifdef INDICATE_PROGRESS
 		if (is_first)
 			std::cout << "\033[K"
-			          << "dimension " << current_dimension << ": computed almost all of the coboundaries" << std::flush
-			          << "\r";
+			          << "dimension " << current_dimension << ": computed almost all of the coboundaries" << std::flush;
 #endif
 	}
 	void operator()(vertex_index_t* first_vertex, int size) {
@@ -352,7 +351,7 @@ struct real_store_coboundaries_in_cache_t {
 			std::cout << "\033[K"
 			          << "dimension " << current_dimension << ": computed ca. " << nb_threads * (current_index + 1);
 			if (total_cell_number > 0) std::cout << "/" << total_cell_number;
-			std::cout << " coboundaries" << std::flush << "\r";
+			std::cout << " coboundaries\n" << std::flush;// << "\r";
 		}
 #endif
 		directed_flag_complex_cell_t cell(first_vertex);
@@ -425,8 +424,8 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 
 #ifdef INDICATE_PROGRESS
 	std::cout << "\033[K"
-	          << "preparing dimension " << dimension << ": indexing " << (dimension) << "-dimensional cells"
-	          << std::flush << "\r";
+	          << "preparing dimension " << dimension << ": indexing " << (dimension) << "-dimensional cells\n"
+	          << std::flush;// << "\r";
 #endif
 	
 	assert(dimension == current_dimension + 1);
@@ -461,7 +460,7 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 #ifdef INDICATE_PROGRESS
 				std::cout << "\033[K"
 				          << "preparing dimension " << dimension << ": computing the filtration of all "
-				          << (dimension + 1) << "-dimensional cells" << std::flush << "\r";
+				          << (dimension + 1) << "-dimensional cells\n" << std::flush;// << "\r";
 #endif
 				size_t offset = 0;
 				std::vector<compute_filtration_t> compute_filtration;
@@ -500,8 +499,8 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 
 #ifdef INDICATE_PROGRESS
 		std::cout << "\033[K"
-		          << "preparing dimension " << dimension << ": indexing " << (dimension + 1) << "-dimensional cells"
-		          << std::flush << "\r";
+		          << "preparing dimension " << dimension << ": indexing " << (dimension + 1) << "-dimensional cells\n"
+		          << std::flush;// << "\r";
 #endif
 
 		size_t _cell_count = 0;
@@ -547,7 +546,7 @@ void real_directed_flag_complex_computer_t::prepare_next_dimension(int dimension
 #ifdef INDICATE_PROGRESS
 		std::cout << "\033[K"
 		          << "preparing dimension " << dimension
-		          << ": done computing coboundaries, now reducing memory consumption" << std::flush << "\r";
+		          << ": done computing coboundaries, now reducing memory consumption\n" << std::flush;// << "\r";
 #endif
 	}
 
