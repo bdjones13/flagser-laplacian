@@ -16,12 +16,6 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 find_package(Threads REQUIRED)
 
-# find_package(HDF5)
-# IF(HDF5_FOUND)
-#     include_directories(${HDF5_INCLUDE_DIR})
-#     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWITH_HDF5")
-# ENDIF()
-
 ##########################################################################
 ######    CHANGE THIS DEPENDING ON YOUR MACHINE   ######################## 
 set(Matlab_ROOT_DIR "/usr/local/MATLAB/R2022b")###########################

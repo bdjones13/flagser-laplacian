@@ -1,10 +1,5 @@
 #pragma once
 
-// #define INDICATE_PROGRESS
-// #define USE_COEFFICIENTS
-// #define USE_GOOGLE_HASHMAP
-// TODO: go function by function, determine if it's necessary, and put them in a good order
-// TODO: replace double with option of single precision
 
 #include <cassert>
 #include <deque>
@@ -13,7 +8,6 @@
 #include <set>
 
 #include "definitions.h"
-// #include "output/base.h"
 
 #include "Eigen/Eigen/src/Core/IO.h"
 #include "MatlabEngine.hpp"
@@ -504,8 +498,6 @@ private:
 template <typename Complex> class real_persistence_computer_t {
 private:
 	Complex& complex;
-	// output_t<Complex>* output;
-	// value_t max_filtration;
 	size_t max_entries;
 	
 	std::string out_prefix;
@@ -516,7 +508,6 @@ private:
 	unsigned short min_dimension;
 	unsigned short max_dimension;
 	unsigned short top_dimension;
-	// coefficient_t modulus = 0;//2;
 	std::vector<coefficient_t> multiplicative_inverse;
 	std::deque<real_filtration_index_t> columns_to_reduce;
 
@@ -544,12 +535,10 @@ private:
 #endif
 
 public:
-	real_persistence_computer_t(Complex& _complex,// output_t<Complex>* _output,
-	                       size_t _max_entries = std::numeric_limits<size_t>::max(), //int _modulus = 2,
-	                    //    value_t _max_filtration = std::numeric_limits<value_t>::max(),
+	real_persistence_computer_t(Complex& _complex,
+	                       size_t _max_entries = std::numeric_limits<size_t>::max(), 
 						   std::string _out_prefix = "")
-	    : complex(_complex),// output(_output),
-		//  max_filtration(_max_filtration),
+	    : complex(_complex),
 		 max_entries(_max_entries), out_prefix(_out_prefix){
 #ifdef USE_MATLAB
 			m_matlab_engine = matlab::engine::startMATLAB();
@@ -564,7 +553,6 @@ public:
 									std::string out_prefix = ""){
 		min_dimension = min_dim;
 		max_dimension = max_dim;
-		// std::cout << "max_dimension = " << max_dimension << std::endl;
 		compute_coboundaries(min_dimension, max_dimension);
 		sort_coboundaries();
 		
@@ -598,7 +586,6 @@ public:
 				auto duration_up = std::chrono::duration_cast<std::chrono::milliseconds>(end_up - start_up);
  
 				std::cout << "\na=" << filtration << ", b=" << next_filtration << ", dim=" << dim;
-				// std::cout << "\n\% dim = " << dim << "filtration=" << filtration << ", next_filtration=" << next_filtration;
 				std::cout << ", time (ms):" << duration_dim_filt.count();// << ", duration_up=" << duration_up.count();
 				
 				spectra[dim].push_back(current_eigenvals);
@@ -727,6 +714,7 @@ public:
 					//rref step is extremely time consuming
 					auto start_rref = std::chrono::high_resolution_clock::now();
 					m_matlab_engine->eval(u"reduction = rref(D_temp);"); // basically all of the computational time is in this rref
+					// would be best to replace this with a variant of the standard reduction algorith,
 					auto end_rref = std::chrono::high_resolution_clock::now();
 					auto duration_rref = std::chrono::duration_cast<std::chrono::milliseconds>(end_rref - start_rref);
 					// std::cout << "[rref_time=" << duration_rref.count() << "]";

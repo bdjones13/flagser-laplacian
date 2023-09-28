@@ -1,0 +1,118 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+
+\title{flagser-laplacian Documentation}
+\author{Ben Jones}
+\date{September 2023}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+flagser-laplacian computes the spectra of the Persistent Directed Flag Laplacian, defined on direfect flag (clique) complexes. It relies on substantial portions of the software flagser, by Daniel L\"utgehetmann \cite{lutgehetmannComputingPersistentHomology2020}, to build the directed flag complexes and (co)boundary matrices. 
+
+This software takes as input a (filtered) directed graph and outputs the computed spectra. It does not produce a directed graph from point cloud data.
+
+\section{Requirements}
+flagser-laplacian requires a C++17 compiler, CMake, and a MATLAB installation.
+
+This software uses the MATLAB Engine API for C++, may be difficult to use in a Windows environment.
+
+This software also uses the C++ library Eigen for some matrix computations. A full copy of Eigen is included in include/Eigen. 
+
+\section{Installation and building}
+You can install flagser-laplacian by first cloning the repository:
+
+\begin{verbatim}
+    git clone https://github.com/bdjones13/flagser_laplacian
+\end{verbatim} 
+
+\vspace{1em}
+\textbf{Important:} the MATLAB directory in CMakeLists.txt (lines 21 and possibly lines 27 and 33) must agree with your MATLAB installation.
+\vspace{1em}
+
+Now you can compile the source code from within the repository: 
+
+\begin{verbatim}
+    > mkdir build
+    > cd build
+    > cmake ..
+    > make
+\end{verbatim}
+
+This will produce the executable file \verb|flagser-laplacian|. If you want to use flagser-laplacian from a different directory, you may want to add the directory containing the executable file to your path.
+
+\section{Usage}
+
+\subsection{Input data}
+The input data file for flagser-laplacian must be in the flagser format:
+
+\begin{verbatim}
+    dim 0:
+    filtration_vertex_0 filtration_vertex_1 ... filtraition_vertex_n
+    dim 1:
+    first_vertex_id_of_edge_0 second_vertex_id_of_edge_0 filtration_edge_0
+    first_vertex_id_of_edge_1 second_vertex_id_of_edge_1 filtration_edge_1
+    ...
+    first_vertex_id_of_edge_m second_vertex_id_of_edge_m filtration_edge_m
+\end{verbatim}
+
+Note that the filtration values are not optional. If you do not want to use a filtration, use a filtration value of $0$.
+
+\subsection{Running flagser-laplacian}
+\begin{verbatim}
+    ./flagser-laplacian [options] datafile.flag
+\end{verbatim}
+
+where datafile.flag is a file in the flagser format described above.
+
+Here is a description of the possible options:
+
+\begin{itemize}
+    \item[\textbf{--out-prefix prefix}:] is an optional parameter that will add \verb|prefix| to the beginning of the output file names. This is useful when making multiple calls to flagser-laplacian.
+    \item[\textbf{--max-dim dim}:] is an optional parameter that will limit the dimension of the spectra to be computed.
+\end{itemize}
+
+Here are some examples of ways to call flagser-laplacian
+
+\begin{itemize}
+    \item \verb|./flagser-laplacian a.flag|
+    \item \verb|./flagser-laplacian test/a.flag|
+    \item \verb|./flagser-laplacian --out-prefix myprefix test/a.flag|
+    \item \verb|./flagser-laplacian --max-dim 2 test/a.flag|
+    \item \verb|./flagser-laplacian --max-dim 2 --out-prefix myprefix2 test/a.flag|
+\end{itemize}
+
+Other options that flagser implemented are not currently available in flagser-laplacian.
+
+
+\subsection{Output}
+
+The number of output files will depend on the directed graph you input and if you specified a maximum dimension. There will be an output \verb|prefix_spectra_i.txt| for each dimension $i$ of the directed flag complex, up to the maximum dimension you specify. There will also be an output \verb|prefix_spectra_summary.txt|. 
+
+The format for a file \verb|prefix_spectra_i.txt| will be of the form:
+
+\begin{verbatim}
+    >
+    > 
+    > 1
+    > 0 0 2
+    > 0 0 0 0.1 1.0
+\end{verbatim}
+
+Each line represents the spectra of  $\Delta^{a,b}_i$, where $a$ is the filtration value corresponding to the row number, and $b$ is the next filtration value. For example, if the filtration is $0$, $1.5$, $2$, $3$, the 2nd line of the file will report the spectra for $\Delta^{1.5,2}_i$. \textbf{Note:} the final line of each \verb|spectra_i.txt| file is equal to the spectra of $\Delta^b_i$, where $b$ is the final filtration value, e.g. $3$ in the above example. This final step is achieved by inserting an artificial final filtration value of $b+1$, and since the directed flag complexes at $b$ and $b+1$ are equal, we will have $\Delta^b_i = \Delta^{b,b+1}_i$. Observe that the first lines may be blank if there are no directed $i$-cliques at that filtration step. The spectra are printed in non-decreasing order. 
+
+The other output file, \verb|prefix_spectra_summary.txt|, is in tab separated value format. The headers are $i$ (filtration index starting from $0$), \verb|filtration| (the real number filtration values), \verb|betti_0|, \verb|betti_1| ... \verb|bett_N| (persistent Betti numbers up to the top dimension of the complex or the specified maximum $N$), \verb|lambda_0|, \verb|lambda_1| ... \verb|lambda_N| (least nonzero persistent eigenvalues). If there are no nonzero eigenvalues, at that filtration level, \verb|lambda_i| is taken to be $0$. It might look like this:
+
+\begin{verbatim}
+    i   filtration  betti_0 lambda_0
+    0   0   1   0
+    1   0.1 2   0.23
+\end{verbatim}
+
+Note that each tab separator is a tab. Depending on the software you use to view this file, it may not appear as aligned columns.
+%%  The bibliography
+\bibliographystyle{abbrv}
+\bibliography{flagser-laplacian}
+\end{document}

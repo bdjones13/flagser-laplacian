@@ -7,9 +7,6 @@
 #define USE_ARRAY_HASHMAP
 #define USE_CELLS_WITHOUT_DIMENSION
 #define SORT_COLUMNS_BY_PIVOT
-// #define WITH_HDF5
-// #define USE_COEFFICIENTS //Ben Jones 2023-03-01
-// #define MANY_VERTICES
 
 #include "../include/parameters.h"
 #include "../include/real_persistence.h"
