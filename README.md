@@ -12,7 +12,7 @@ This includes substantial portions of the flagser package by Daniel Lütgehetman
 
 Flagser-Laplacian requires a C++17 compiler, cmake, and a MATLAB installation. 
 
-1. You should clone or download this git repository: ```git clone https://github.com/bdjones13/flagser_laplacian```. 
+1. You should clone or download this git repository: ```git clone https://github.com/bdjones13/flagser-laplacian```. 
 2. You May need to edit CMakeLists.txt line 21 and possibly lines 27 and 33 to point to your MATLAB installation.
 3. In the repository root, create and enter a directory ```build```.
 4. From within ```build``` run ```cmake ..``` followed by ```make```.
