@@ -10,6 +10,7 @@
 #include "definitions.h"
 
 #include "Eigen/Eigen/src/Core/IO.h"
+#include "Eigen/unsupported/Eigen/SparseExtra"
 #include "MatlabEngine.hpp"
 #include "MatlabDataArray.hpp"
 
@@ -558,6 +559,16 @@ public:
 		
 		make_boundaries();
 		set_total_filtration(); // TODO write total_filtration to output
+
+		bool save_boundaries = true;
+		if (save_boundaries){
+			write_filtrations();
+			for (int dim = 0; dim < top_dimension; dim++){
+				write_eigen_sparse(sorted_boundaries[dim], "./matrix_" + std::to_string(dim));
+				// TODO: write filtrations that go with it too.
+			}
+		}
+
 		setup_eigenval_storage();
 
 		for (int i = 0; i < (int) total_filtration.size()-1; i++){
@@ -595,6 +606,7 @@ public:
 		// print_all_spectra();
 		store_spectra();	
 		store_spectra_summary();
+		
 	}
 
 
@@ -646,6 +658,20 @@ public:
 			std::cout << "]" << std::flush;
 		}
 		std::cout << "}(end all_filtration_pairs)" << std::flush << std::endl;
+	}
+	void write_filtrations(){
+		for (int i = 0; i < (int) all_filtration_pairs.size(); i++){
+
+			std::vector<real_filtration_index_t> filtration_pairs = all_filtration_pairs[i];
+			std::ofstream outstream("./" + out_prefix + "_filtrations_" + std::to_string(i) + ".txt");			
+			for (int j = 0; j < (int) filtration_pairs.size(); j++){
+				real_filtration_index_t current_filtration = filtration_pairs[j];
+				outstream << get_filtration(current_filtration) <<",";
+
+			}
+			outstream << std::endl;
+			outstream.close();
+		}
 	}
 
 #ifdef USE_MATLAB
@@ -1116,4 +1142,14 @@ protected:
 			sorted_boundaries.push_back(sorted_coboundaries[i].transpose());
 		}
 	}
+
+	void write_eigen_sparse(SparseMatrix m, std::string filename){
+        Eigen::saveMarket(m,filename);
+    }
+
+    SparseMatrix read_eigen_sparse(std::string filename){
+        SparseMatrix m;
+        Eigen::loadMarket(m, filename);
+        return m;
+    }
 };
