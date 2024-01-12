@@ -18,6 +18,8 @@ Flagser-Laplacian requires a C++17 compiler, cmake, Eigen 3.4, and the Persisten
 
 This will produce an executable ```flagser-laplacian```. If you want to use flagser-laplacian from a different directory, you may want to add the directory containing the ```flagser-laplacian``` executable file to your path.
 
+**Note**: You may need to modify lines 69 and 75 the CMakeLists.txt to point to your machine's installation of the PersistentLaplacians package. 
+
 ### Running
 
 To call flagser-laplacian you run
