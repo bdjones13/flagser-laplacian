@@ -16,25 +16,25 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 find_package(Threads REQUIRED)
 
-##########################################################################
-######    CHANGE THIS DEPENDING ON YOUR MACHINE   ######################## 
-set(Matlab_ROOT_DIR "/usr/local/MATLAB/R2022b")###########################
-##########################################################################
+# ##########################################################################
+# ######    CHANGE THIS DEPENDING ON YOUR MACHINE   ######################## 
+# set(Matlab_ROOT_DIR "/usr/local/MATLAB/R2022b")###########################
+# ##########################################################################
 
-find_package(Matlab)
-find_library(LIB_MATLAB_DATA_ARRAY 
-	NAMES MatlabDataArray
-	PATHS ${Matlab_ROOT_DIR}/extern/bin/glnxa64
-	NO_DEFAULT_PATH
-  REQUIRED)
+# find_package(Matlab)
+# find_library(LIB_MATLAB_DATA_ARRAY 
+# 	NAMES MatlabDataArray
+# 	PATHS ${Matlab_ROOT_DIR}/extern/bin/glnxa64
+# 	NO_DEFAULT_PATH
+#   REQUIRED)
 
-find_library(LIB_MATLAB_ENGINE
-	NAMES MatlabEngine
-	PATHS ${Matlab_ROOT_DIR}/extern/bin/glnxa64
-        NO_DEFAULT_PATH
-        REQUIRED)
+# find_library(LIB_MATLAB_ENGINE
+# 	NAMES MatlabEngine
+# 	PATHS ${Matlab_ROOT_DIR}/extern/bin/glnxa64
+#         NO_DEFAULT_PATH
+#         REQUIRED)
 
-include_directories(${Matlab_INCLUDE_DIRS})
+# include_directories(${Matlab_INCLUDE_DIRS})
 
 
 IF(MSVC)
@@ -66,13 +66,20 @@ message("** CMAKE_CXX_RELEASE_FLAGS: \t\t\t${CMAKE_CXX_RELEASE_FLAGS}")
 message("** CMAKE_CXX_LINK_FLAGS: \t\t${CMAKE_CXX_LINK_FLAGS}")
 message("")
 
-IF(HDF5_FOUND)
-  IF(NOT MSVC)
-    TARGET_LINK_LIBRARIES(flagser-laplacian ${HDF5_LIBRARIES} pthread ${LIB_MATLAB_DATA_ARRAY} ${LIB_MATLAB_ENGINE}) # Ben Jones 2023-03-01, added matlab 2023-03-15
-  ENDIF()
-ELSE()
-  TARGET_LINK_LIBRARIES(flagser-laplacian pthread ${LIB_MATLAB_DATA_ARRAY} ${LIB_MATLAB_ENGINE}) # Ben Jones 2023-03-22
-ENDIF()
+find_library(PERSISTENTLAPLACIANS_LIB PersistentLaplacians HINTS /usr/local/lib /usr/local/include /mnt/home/jones657/customlib/include /mnt/home/jones657/customlib/lib)
+message(PERSISTENTLAPLACIANS_LIB="${PERSISTENTLAPLACIANS_LIB}")
+
+find_package(Eigen3 3.4 REQUIRED HINTS /usr/local/lib /usr/local/include /opt/software/Eigen/3.4.0-GCCcore-11.3.0/include)
+link_directories(${Eigen_INCLUDE_DIRS})
+
+include_directories(/usr/local/include /mnt/home/jones657/customlib/include/ ${Eigen_INCLUDE_DIRS} /opt/software/Eigen/3.4.0-GCCcore-11.3.0/include/ )
+
+# add_executable(flagser-laplacian src/flagser-laplacian.cpp)
+target_compile_definitions(flagser-laplacian PRIVATE USE_COEFFICIENTS=1 REAL_COEFFICIENTS=1)
+set_target_properties(flagser-laplacian PROPERTIES LINKER_LANGUAGE CXX)
+
+TARGET_LINK_LIBRARIES(flagser-laplacian ${HDF5_LIBRARIES} ${Eigen_LIBRARIES} ${PERSISTENTLAPLACIANS_LIB})
+
 
 IF(NOT MSVC)
   install(TARGETS flagser-laplacian RUNTIME DESTINATION bin) 

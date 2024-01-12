@@ -3,23 +3,19 @@
 
 \title{flagser-laplacian Documentation}
 \author{Ben Jones}
-\date{September 2023}
+\date{January 2024}
 
 \begin{document}
 
 \maketitle
 
 \section{Introduction}
-flagser-laplacian computes the spectra of the Persistent Directed Flag Laplacian, defined on direfect flag (clique) complexes. It relies on substantial portions of the software flagser, by Daniel L\"utgehetmann \cite{lutgehetmannComputingPersistentHomology2020}, to build the directed flag complexes and (co)boundary matrices. 
+flagser-laplacian computes the spectra of the Persistent Directed Flag Laplacian, defined on directed flag (clique) complexes. It relies on substantial portions of the software flagser, by Daniel L\"utgehetmann \cite{lutgehetmannComputingPersistentHomology2020}, to build the directed flag complexes and (co)boundary matrices. 
 
 This software takes as input a (filtered) directed graph and outputs the computed spectra. It does not produce a directed graph from point cloud data.
 
 \section{Requirements}
-flagser-laplacian requires a C++17 compiler, CMake, and a MATLAB installation.
-
-This software uses the MATLAB Engine API for C++, may be difficult to use in a Windows environment.
-
-This software also uses the C++ library Eigen for some matrix computations. A full copy of Eigen is included in include/Eigen. 
+flagser-laplacian requires a C++17 compiler, CMake, Eigen 3.4, and the PersistentLaplacians C++ library (which has dependencies of CGAL and Gudhi).
 
 \section{Installation and building}
 You can install flagser-laplacian by first cloning the repository:
@@ -27,10 +23,6 @@ You can install flagser-laplacian by first cloning the repository:
 \begin{verbatim}
     git clone https://github.com/bdjones13/flagser-laplacian
 \end{verbatim} 
-
-\vspace{1em}
-\textbf{Important:} the MATLAB directory in CMakeLists.txt (lines 21 and possibly lines 27 and 33) must agree with your MATLAB installation.
-\vspace{1em}
 
 Now you can compile the source code from within the repository: 
 

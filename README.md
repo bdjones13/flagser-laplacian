@@ -10,10 +10,9 @@ This includes substantial portions of the flagser package by Daniel Lütgehetman
 
 ### Building
 
-Flagser-Laplacian requires a C++17 compiler, cmake, and a MATLAB installation. 
+Flagser-Laplacian requires a C++17 compiler, cmake, Eigen 3.4, and the PersistentLaplacians C++ library (which has dependencies of CGAL and Gudhi). 
 
 1. You should clone or download this git repository: ```git clone https://github.com/bdjones13/flagser-laplacian```. 
-2. You May need to edit CMakeLists.txt line 21 and possibly lines 27 and 33 to point to your MATLAB installation.
 3. In the repository root, create and enter a directory ```build```.
 4. From within ```build``` run ```cmake ..``` followed by ```make```.
 

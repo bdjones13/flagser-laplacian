@@ -5,8 +5,8 @@
 #include <algorithm>
 
 #include "../directed_graph.h"
-#include "../parameters.h"
-#include "../real_persistence.h"
+#include "../parameters_real.h"
+#include "../persistence_real.h"
 #include "directed_flag_complex.h"
 
 
